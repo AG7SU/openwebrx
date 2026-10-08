@@ -3,6 +3,7 @@ from owrx.controllers.assets import AssetsController
 from owrx.controllers.admin import AuthorizationMixin
 from owrx.config.core import CoreConfig
 from owrx.form.input.gfx import AvatarInput, TopPhotoInput
+from owrx.security import upload_path
 import uuid
 import json
 
@@ -22,10 +23,7 @@ class ImageUploadController(AuthorizationMixin, AssetsController):
     def getFilePath(self, file=None):
         if self.file is None:
             raise FileNotFoundError("missing filename")
-        return "{tmp}/{file}".format(
-            tmp=CoreConfig().get_temporary_directory(),
-            file=self.file
-        )
+        return upload_path(CoreConfig().get_temporary_directory(), self.file)
 
     def indexAction(self):
         self.serve_file(None)
@@ -71,7 +69,7 @@ class ImageUploadController(AuthorizationMixin, AssetsController):
             uuid=uuid.uuid4().hex,
             ext=filetype,
         )
-        with open(self.getFilePath(), "wb") as f:
+        with open(self.getFilePath(), "xb") as f:
             f.write(contents)
         self.send_json_response({"file": self.file}, code=200)
 

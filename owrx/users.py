@@ -3,6 +3,7 @@ from owrx.config.core import CoreConfig
 from datetime import datetime, timezone
 import json
 import hashlib
+import hmac
 import os
 import stat
 
@@ -45,7 +46,7 @@ class CleartextPassword(Password):
             raise ValueError("invalid argument to ClearTextPassword()")
 
     def is_valid(self, inp: str) -> bool:
-        return self._value == inp
+        return hmac.compare_digest(self._value.encode(), inp.encode())
 
     def toJson(self) -> dict:
         return {
@@ -77,7 +78,7 @@ class HashedPassword(Password):
 
     def is_valid(self, inp: str) -> bool:
         dk = hashlib.pbkdf2_hmac(self._algorithm, inp.encode(), self._salt, self.iterations)
-        return dk.hex() == self._hash
+        return hmac.compare_digest(dk.hex(), self._hash)
 
     def toJson(self) -> dict:
         return {

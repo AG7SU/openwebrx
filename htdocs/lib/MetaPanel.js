@@ -497,7 +497,8 @@ WfmMetaPanel.prototype.update = function(data) {
             if (url.indexOf('://') < 0) url = 'https://' + url;
             // avoid updating the link if not necessary since that would prevent the user from clicking it
             if ($el.find('.rds-rtplus-homepage a').attr('href') !== url) {
-                var link = $('<a href="' + url + '" target="_blank"></a>').text(this.radiotext_plus.homepage);
+                if (!/^https?:\/\//i.test(url)) url = '';
+                var link = $('<a>').attr({href: url, target: '_blank', rel: 'noopener noreferrer'}).text(this.radiotext_plus.homepage);
                 $el.find('.rds-rtplus-homepage').html(link);
             }
         }
@@ -611,9 +612,7 @@ HdrMetaPanel.prototype.update = function(data) {
 
     // If there is an image, display it and do not parse further
     if ('image' in data && 'data' in data) {
-        $('#hdr-logo').html(
-            '<img src="data:image/png;base64,' + data.data + '">'
-        );
+        $('#hdr-logo').empty().append($('<img>').attr('src', 'data:image/png;base64,' + data.data));
         return;
     }
 
@@ -639,10 +638,9 @@ HdrMetaPanel.prototype.update = function(data) {
     var $select = $('#hdr-program-id');
     if (data.audio_services && data.audio_services.length) {
         $select.html(data.audio_services.map(function(pgm) {
-            var selected = data.program == pgm.id? ' selected' : '';
-            return '<option value="' + pgm.id + '"' + selected + '>P' +
-                (pgm.id + 1) + ' - ' + pgm.name + '</option>';
-        }).join());
+            return $('<option>').val(pgm.id).prop('selected', data.program == pgm.id)
+                .text('P' + (pgm.id + 1) + ' - ' + pgm.name)[0].outerHTML;
+        }).join(''));
         $select.show();
     } else {
         $select.html('');
@@ -702,7 +700,7 @@ DabMetaPanel.prototype.update = function(data) {
 
     if ('programmes' in data) {
         var options = Object.entries(data.programmes).map(function(e) {
-            return '<option value="' + e[0] + '">' + e[1] + '</option>';
+            return $('<option>').val(e[0]).text(e[1])[0].outerHTML;
         });
         this.$select.html(
             options.join('') +
@@ -850,16 +848,16 @@ DrmMetaPanel.prototype.update = function(data) {
 
             programs +=
                 '<div class="drm-program">' +
-                    '<div style="color:yellow;"><b>' + entry.label + '</b> (ID: ' + id + ')</div>';
+                    '<div style="color:yellow;"><b>' + Utils.htmlEscape(entry.label) + '</b> (ID: ' + Utils.htmlEscape(id) + ')</div>';
 
             if (entry.text) {
-                programs += '<div style="color:cyan;" class="drm-label">' + entry.text + '</div>';
+                programs += '<div style="color:cyan;" class="drm-label">' + Utils.htmlEscape(entry.text) + '</div>';
             }
 
             programs +=
                 '<div>' +
                     '<span class="drm-label">Type:&nbsp;</span>' +
-                    '<span class="drm-value">' + type + '</span>';
+                    '<span class="drm-value">' + Utils.htmlEscape(type) + '</span>';
 
             if (entry.is_audio) {
                 programs +=
@@ -870,25 +868,25 @@ DrmMetaPanel.prototype.update = function(data) {
             if (entry.bitrate_kbps) {
                 programs +=
                     ' | <span class="drm-label">Bitrate:&nbsp;</span>' +
-                    '<span class="drm-value">' + entry.bitrate_kbps + ' kbps</span>';
+                    '<span class="drm-value">' + Utils.htmlEscape(entry.bitrate_kbps) + ' kbps</span>';
             }
 
             if (entry.protection_mode) {
                 programs +=
                     ' | <span class="drm-label">Protection:&nbsp;</span>' +
-                    '<span class="drm-value">' + entry.protection_mode + '</span>';
+                    '<span class="drm-value">' + Utils.htmlEscape(entry.protection_mode) + '</span>';
             }
 
             if (entry.country && entry.country.name) {
                 programs +=
                     ' | <span class="drm-label">Country:&nbsp;</span>' +
-                    '<span class="drm-value">' + entry.country.name + '</span>';
+                    '<span class="drm-value">' + Utils.htmlEscape(entry.country.name) + '</span>';
             }
 
             if (entry.language && entry.language.name) {
                 programs +=
                     ' | <span class="drm-label">Language:&nbsp;</span>' +
-                    '<span class="drm-value">' + entry.language.name + '</span>';
+                    '<span class="drm-value">' + Utils.htmlEscape(entry.language.name) + '</span>';
             }
 
             programs += '</div></div>';
@@ -945,8 +943,8 @@ TetraMetaPanel.prototype.isSupported = function(data) {
 
 TetraMetaPanel.prototype.row = function(name, value) {
     return(
-        '<tr><td align="right">' + name +
-        '&nbsp;</td><td align="left">' + value +
+        '<tr><td align="right">' + Utils.htmlEscape(name) +
+        '&nbsp;</td><td align="left">' + Utils.htmlEscape(value) +
         '</td></tr>'
     );
 };

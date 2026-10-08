@@ -18,6 +18,7 @@ class Controller(object):
         self.handler.send_response(code)
         if headers is None:
             headers = {}
+        headers.setdefault("X-Content-Type-Options", "nosniff")
         if content_type is not None:
             headers["Content-Type"] = content_type
             if content_type.startswith("text/"):
@@ -50,16 +51,30 @@ class Controller(object):
     def set_response_cookies(self, cookies):
         self.responseCookies = cookies
 
-    def get_body(self, max_size=None):
-        if "Content-Length" not in self.handler.headers:
-            return None
-        length = int(self.handler.headers["Content-Length"])
-        if max_size is not None and length > max_size:
+    def get_body(self, max_size=4 * 1024 * 1024):
+        if self.handler.headers.get("Transfer-Encoding"):
+            raise BodySizeError("unsupported transfer encoding")
+        try:
+            length = int(self.handler.headers.get("Content-Length", "0"))
+        except ValueError:
+            raise BodySizeError("invalid content length")
+        if length < 0 or length > max_size:
             raise BodySizeError("HTTP body exceeds maximum allowed size")
-        return self.handler.rfile.read(length)
+        body = self.handler.rfile.read(length)
+        if len(body) != length:
+            raise BodySizeError("incomplete HTTP body")
+        return body
 
     def handle_request(self):
         action = "indexAction"
         if "action" in self.options:
             action = self.options["action"]
-        getattr(self, action)()
+        from owrx.security import cross_site_request
+        protected = self.request.method not in ("GET", "HEAD") or hasattr(self, "authentication")
+        if protected and cross_site_request(self.request.headers):
+            self.send_response("cross-site request forbidden", code=403)
+            return
+        try:
+            getattr(self, action)()
+        except BodySizeError:
+            self.send_response("invalid or oversized request body", code=413)

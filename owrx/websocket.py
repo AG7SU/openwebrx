@@ -48,6 +48,7 @@ class Handler(ABC):
 
 class WebSocketConnection(object):
     connections = []
+    max_payload_size = 1024 * 1024
 
     @staticmethod
     def closeAll():
@@ -125,8 +126,9 @@ class WebSocketConnection(object):
 
         # string-type messages are sent as text frames
         if type(data) == str:
+            data = data.encode("utf-8")
             header = self.get_header(len(data), OPCODE_TEXT_MESSAGE)
-            data_to_send = header + data.encode("utf-8")
+            data_to_send = header + data
         # anything else as binary
         else:
             header = self.get_header(len(data), OPCODE_BINARY_MESSAGE)
@@ -212,12 +214,21 @@ class WebSocketConnection(object):
                 while self.open and available:
                     try:
                         header = protected_read(2)
-                        opcode = header[0] & 0x0F
+                        first = header[0]
+                        opcode = first & 0x0F
+                        if first & 0x70 or not first & 0x80:
+                            raise WebSocketException("unsupported fragmented or reserved frame")
+                        if opcode not in (1, 2, 8, 9, 10):
+                            raise WebSocketException("invalid opcode")
                         length = header[1] & 0x7F
                         mask = (header[1] & 0x80) >> 7
                         if length == 126:
                             header = protected_read(2)
                             length = (header[0] << 8) + header[1]
+                        elif length == 127:
+                            length = int.from_bytes(protected_read(8), "big")
+                        if not mask or length > self.max_payload_size or (opcode >= 8 and length > 125):
+                            raise WebSocketException("invalid mask or oversized frame")
                         if mask:
                             masking_key = protected_read(4)
                             data = protected_read(length)
@@ -249,8 +260,8 @@ class WebSocketConnection(object):
                         available = False
                     except SSLWantReadError:
                         available = False
-                    except IncompleteRead:
-                        logger.warning("incomplete read on websocket; closing connection")
+                    except (WebSocketException, UnicodeDecodeError):
+                        logger.warning("invalid or incomplete websocket frame; closing connection")
                         self.socketError = True
                         self.open = False
                     except OSError:

@@ -1,3 +1,4 @@
+from owrx.security import confined_path
 from owrx.config.core import CoreConfig
 from owrx.config import Config
 from datetime import datetime
@@ -46,7 +47,7 @@ class Storage(object):
 
     # Delete stored file by name, the name must match pattern
     def deleteFile(self, fileName: str):
-        if re.match(self.filePattern, fileName):
+        if re.fullmatch(self.filePattern, fileName):
             filePath = self.getFilePath(fileName)
             logger.info("Deleting '{0}'.".format(filePath))
             with self.lock:
@@ -60,7 +61,7 @@ class Storage(object):
     def getStoredFiles(self):
         dir = CoreConfig().get_temporary_directory()
         with self.lock:
-            files = [os.path.join(dir, f) for f in os.listdir(dir) if re.match(self.filePattern, f)]
+            files = [os.path.join(dir, f) for f in os.listdir(dir) if re.fullmatch(self.filePattern, f)]
         files.sort(key=lambda x: os.path.getctime(x), reverse=True)
         return [os.path.basename(f) for f in files]
 
@@ -71,7 +72,7 @@ class Storage(object):
         dir   = CoreConfig().get_temporary_directory()
 
         with self.lock:
-            files = [os.path.join(dir, f) for f in os.listdir(dir) if re.match(self.filePattern, f)]
+            files = [os.path.join(dir, f) for f in os.listdir(dir) if re.fullmatch(self.filePattern, f)]
             files.sort(key=lambda x: os.path.getctime(x), reverse=True)
 
             for f in files[keep:]:
@@ -90,7 +91,7 @@ class Storage(object):
     # adding folder name
     @staticmethod
     def getFilePath(filename: str):
-        return os.path.join(CoreConfig().get_temporary_directory(), filename)
+        return confined_path(CoreConfig().get_temporary_directory(), filename)
 
     # Create stored file name by inserting current UTC date
     # and time into the pattern spot designated with "{0}"

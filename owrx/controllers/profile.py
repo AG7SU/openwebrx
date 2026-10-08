@@ -1,3 +1,4 @@
+from owrx.security import local_redirect
 from owrx.controllers.template import WebpageController
 from owrx.controllers.admin import AuthorizationMixin
 from owrx.users import UserList, DefaultPasswordClass
@@ -18,7 +19,7 @@ class ProfileController(AuthorizationMixin, WebpageController):
         if "password" in data and "confirm" in data and data["password"] == data["confirm"]:
             self.user.setPassword(DefaultPasswordClass(data["password"]), must_change_password=False)
             userlist.store()
-            target = self.request.query["ref"][0] if "ref" in self.request.query else "/settings"
+            target = local_redirect(self.request.query.get("ref", ["/settings"])[0])
         else:
             target = "/pwchange"
         self.send_redirect(target)

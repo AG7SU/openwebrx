@@ -1,3 +1,4 @@
+import shlex
 from abc import ABC, abstractmethod
 
 
@@ -61,11 +62,7 @@ class Option(CommandMapping):
 
     def map(self, value):
         if value is not None:
-            if isinstance(value, str) and " " in value:
-                template = '{option}{spacer}"{value}"'
-            else:
-                template = "{option}{spacer}{value}"
-            return template.format(option=self.option, spacer=self.spacer, value=value)
+            return self.option + self.spacer + shlex.quote(str(value))
         else:
             return ""
 
@@ -76,4 +73,4 @@ class Option(CommandMapping):
 
 class Argument(CommandMapping):
     def map(self, value):
-        return str(value)
+        return shlex.quote(str(value))

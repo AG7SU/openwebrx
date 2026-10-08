@@ -1,3 +1,4 @@
+from owrx.security import upload_path
 from owrx.controllers.settings import SettingsFormController
 from owrx.form.section import Section
 from owrx.config.core import CoreConfig
@@ -420,7 +421,7 @@ class GeneralSettingsController(SettingsFormController):
             if data[image_id] == "restore":
                 self.remove_existing_image(image_id)
             elif data[image_id]:
-                if not data[image_id].startswith(image_id):
+                if not re.fullmatch(re.escape(image_id) + r"-[0-9a-f]{32}\.(png|jpg|webp)", data[image_id]):
                     logger.warning("invalid file name: %s", data[image_id])
                 else:
                     # get file extension (at least 3 characters)
@@ -433,7 +434,7 @@ class GeneralSettingsController(SettingsFormController):
                         self.remove_existing_image(image_id)
                         ext = matches.group(1)
                         data_file = "{}/{}.{}".format(config.get_data_directory(), image_id, ext)
-                        temporary_file = "{}/{}".format(config.get_temporary_directory(), data[image_id])
+                        temporary_file = upload_path(config.get_temporary_directory(), data[image_id], image_id)
                         shutil.copy(temporary_file, data_file)
             del data[image_id]
             # remove any accumulated temporary files on save

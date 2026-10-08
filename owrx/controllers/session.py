@@ -1,3 +1,4 @@
+from owrx.security import local_redirect
 from owrx.controllers.template import WebpageController
 from owrx.config import Config
 from urllib.parse import parse_qs, urlencode
@@ -45,6 +46,9 @@ class SessionStorage(object):
         expires = datetime.utcnow() + SessionStorage.sessionLifetime
         self.sessions[key] = expires, data
 
+    def endSession(self, key):
+        self.sessions.pop(key, None)
+
     def prolongSession(self, key):
         data = self.getSession(key)
         if data is None:
@@ -74,21 +78,28 @@ class SessionController(WebpageController):
                     key = SessionStorage.getSharedInstance().startSession({"user": user.name})
                     cookie = SimpleCookie()
                     cookie["owrx-session"] = key
-                    target = self.request.query["ref"][0] if "ref" in self.request.query else "/settings"
+                    cookie["owrx-session"]["path"] = "/"
+                    cookie["owrx-session"]["httponly"] = True
+                    cookie["owrx-session"]["samesite"] = "Strict"
+                    target = local_redirect(self.request.query.get("ref", ["/settings"])[0])
                     if user.must_change_password:
                         # force password change
                         target = "/pwchange?{0}".format(urlencode({"ref": target}))
-                    elif not target.startswith("/"):
-                        # prevent redirecting to external URL
-                        target = "/settings"
                     self.set_response_cookies(cookie)
                     self.send_redirect(target)
                     return
-        target = "{}login?{}".format(self.get_document_root(), urlencode({"ref": self.request.query["ref"][0]}))
+        target = "{}login?{}".format(self.get_document_root(), urlencode({"ref": self.request.query.get("ref", ["/settings"])[0]}))
         self.send_redirect(target)
 
     def logoutAction(self):
         if self.request.local or Config.get()["allow_remote_config"]:
-            self.send_redirect("logout happening here")
+            if "owrx-session" in self.request.cookies:
+                SessionStorage.getSharedInstance().endSession(self.request.cookies["owrx-session"].value)
+            cookie = SimpleCookie()
+            cookie["owrx-session"] = ""
+            cookie["owrx-session"]["path"] = "/"
+            cookie["owrx-session"]["max-age"] = 0
+            self.set_response_cookies(cookie)
+            self.send_redirect("/")
         else:
             self.send_response("access forbidden", code=403)

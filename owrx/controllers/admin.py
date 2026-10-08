@@ -44,6 +44,7 @@ class AuthorizationMixin(object):
         else:
             cookie = SimpleCookie()
             cookie["owrx-session"] = ""
+            cookie["owrx-session"]["path"] = "/"
             cookie["owrx-session"]["expires"] = "Thu, 01 Jan 1970 00:00:00 GMT"
             self.set_response_cookies(cookie)
             if (

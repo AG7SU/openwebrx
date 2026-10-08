@@ -1,4 +1,5 @@
 from . import Controller
+from owrx.security import confined_path
 from owrx.config.core import CoreConfig
 from datetime import datetime, timezone
 import mimetypes
@@ -48,7 +49,7 @@ class ModificationAwareController(Controller, metaclass=ABCMeta):
                 ).replace(tzinfo=timezone.utc)
                 if modified <= client_modified:
                     return False
-        except FileNotFoundError:
+        except (FileNotFoundError, ValueError):
             pass
 
         return True
@@ -100,7 +101,7 @@ class OwrxAssetsController(AssetsController):
                 user_file = "{}/{}.{}".format(config.get_data_directory(), mappedFiles[file], ext)
                 if os.path.exists(user_file) and os.path.isfile(user_file):
                     return user_file
-        return importlib.resources.files("htdocs").joinpath(file)
+        return confined_path(importlib.resources.files("htdocs"), file)
 
 
 class AprsSymbolsController(AssetsController):
@@ -112,7 +113,7 @@ class AprsSymbolsController(AssetsController):
         super().__init__(handler, request, options)
 
     def getFilePath(self, file):
-        return self.path + file
+        return confined_path(self.path, file)
 
 
 class CompiledAssetsController(GzipMixin, ModificationAwareController):

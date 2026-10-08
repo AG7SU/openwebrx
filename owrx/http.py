@@ -102,7 +102,7 @@ class Router(object):
             RegexRoute("^/compiled/(.+)$", CompiledAssetsController),
             RegexRoute("^/aprs-symbols/(.+)$", AprsSymbolsController),
             StaticRoute("/ws/", WebSocketController),
-            RegexRoute("^(/favicon.ico)$", OwrxAssetsController),
+            RegexRoute(r"^/(favicon\.ico)$", OwrxAssetsController),
             StaticRoute("/map", MapController),
             StaticRoute("/features", FeatureController),
             StaticRoute("/api/features", ApiController),
