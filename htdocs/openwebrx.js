@@ -186,7 +186,7 @@ function typeInAnimation(element, timeout, what, onFinish) {
         onFinish();
         return;
     }
-    element.innerHTML += what[0];
+    element.appendChild(document.createTextNode(what[0]));
     window.setTimeout(function () {
         typeInAnimation(element, timeout, what.substring(1), onFinish);
     }, timeout);
@@ -1050,9 +1050,10 @@ function on_ws_recv(evt) {
                         break;
                     case "profiles":
                         var listbox = $("#openwebrx-sdr-profiles-listbox");
-                        listbox.html(json['value'].map(function (profile) {
-                            return '<option value="' + profile['id'] + '">' + profile['name'] + "</option>";
-                        }).join(""));
+                        var profileOptions = json['value'].map(function (profile) {
+                            return $('<option>').val(profile['id']).text(profile['name'])[0];
+                        });
+                        listbox.empty().append(profileOptions);
                         $('#openwebrx-sdr-profiles-listbox').val(currentprofile.toString());
                         // this is a bit hacky since it only makes sense if the error is actually "no sdr devices"
                         // the only other error condition for which the overlay is used right now is "too many users"
@@ -1221,11 +1222,17 @@ var was_error = 0;
 function divlog(what, is_error) {
     is_error = !!is_error;
     was_error |= is_error;
+    var message = document.createElement('div');
     if (is_error) {
-        what = "<span class=\"webrx-error\">" + what + "</span>";
+        message.className = 'webrx-error';
         toggle_panel("openwebrx-panel-log", true); //show panel if any error is present
     }
-    $('#openwebrx-messages')[0].innerHTML += what + "<br />";
+    if (what instanceof Node) {
+        message.appendChild(what);
+    } else {
+        message.textContent = String(what == null? '' : what);
+    }
+    $('#openwebrx-messages').append(message);
     var nano = $('#openwebrx-log-scroll');
     nano.nanoScroller();
     nano.nanoScroller({scroll: 'bottom'});

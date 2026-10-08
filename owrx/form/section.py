@@ -1,6 +1,7 @@
 from owrx.form.error import FormError
 from owrx.form.input import Input
 from typing import List
+import html
 
 
 class Section(object):
@@ -26,7 +27,9 @@ class Section(object):
                 {inputs}
             </div>
         """.format(
-            classes=" ".join(self.classes()), title=self.title, inputs=self.render_inputs(data, errors)
+            classes=html.escape(" ".join(self.classes()), quote=True),
+            title=html.escape(str(self.title)),
+            inputs=self.render_inputs(data, errors),
         )
 
     def parse(self, data):
@@ -82,8 +85,8 @@ class OptionalSection(Section):
                 """
                     <option value="{value}">{name}</option>
                 """.format(
-                    value=input.id,
-                    name=input.getLabel(),
+                    value=html.escape(str(input.id), quote=True),
+                    name=html.escape(str(input.getLabel())),
                 )
                 for input in self.optional_inputs
             )

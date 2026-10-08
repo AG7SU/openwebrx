@@ -4,6 +4,27 @@ function MessagePanel(el) {
     this.initClearButton();
 }
 
+function safeMessageColor(value, fallback) {
+    return typeof value === 'string' && /^#(?:[0-9a-f]{3}|[0-9a-f]{4}|[0-9a-f]{6}|[0-9a-f]{8})$/i.test(value) ? value : fallback;
+}
+
+function validImageDimensions(width, height) {
+    return Number.isInteger(width) && Number.isInteger(height)
+        && width > 0 && height > 0 && width <= 4096 && height <= 4096
+        && width * height <= 16777216;
+}
+
+function decodeBoundedBase64(value, maxLength) {
+    if (typeof value !== 'string' || value.length > maxLength) return null;
+    try {
+        return atob(value);
+    } catch (e) {
+        return null;
+    }
+}
+
+var messageCanvasId = 0;
+
 MessagePanel.prototype.supportsMessage = function(message) {
     return false;
 };
@@ -114,11 +135,11 @@ WsjtMessagePanel.prototype.pushMessage = function(msg) {
         }
     }
     $b.append($(
-        '<tr data-timestamp="' + msg['timestamp'] + '">' +
+        '<tr data-timestamp="' + Utils.htmlEscape(msg['timestamp']) + '">' +
         '<td class="time">' + Utils.HHMMSS(msg['timestamp']) + '</td>' +
-        '<td class="decimal">' + msg['db'] + '</td>' +
-        '<td class="decimal">' + msg['dt'] + '</td>' +
-        '<td class="decimal freq">' + msg['freq'] + '</td>' +
+        '<td class="decimal">' + Utils.htmlEscape(msg['db']) + '</td>' +
+        '<td class="decimal">' + Utils.htmlEscape(msg['dt']) + '</td>' +
+        '<td class="decimal freq">' + Utils.htmlEscape(msg['freq']) + '</td>' +
         '<td class="message" style="font-family:monospace;">' + linkedmsg + '</td>' +
         '</tr>'
     ));
@@ -191,14 +212,18 @@ PacketMessagePanel.prototype.pushMessage = function(msg) {
         }).join('')
     };
     if (msg.symbol) {
+        var symbolIndex = Number.isInteger(msg.symbol.index) && msg.symbol.index >= 0 && msg.symbol.index <= 255
+            ? msg.symbol.index : 0;
         classes.push('aprs-symbol');
         classes.push('aprs-symboltable-' + (msg.symbol.table === '/' ? 'normal' : 'alternate'));
-        styles['background-position-x'] = -(msg.symbol.index % 16) * 15 + 'px';
-        styles['background-position-y'] = -Math.floor(msg.symbol.index / 16) * 15 + 'px';
+        styles['background-position-x'] = -(symbolIndex % 16) * 15 + 'px';
+        styles['background-position-y'] = -Math.floor(symbolIndex / 16) * 15 + 'px';
         if (msg.symbol.table !== '/' && msg.symbol.table !== '\\') {
             var s = {};
-            s['background-position-x'] = -(msg.symbol.tableindex % 16) * 15 + 'px';
-            s['background-position-y'] = -Math.floor(msg.symbol.tableindex / 16) * 15 + 'px';
+            var tableIndex = Number.isInteger(msg.symbol.tableindex) && msg.symbol.tableindex >= 0 && msg.symbol.tableindex <= 255
+                ? msg.symbol.tableindex : 0;
+            s['background-position-x'] = -(tableIndex % 16) * 15 + 'px';
+            s['background-position-y'] = -Math.floor(tableIndex / 16) * 15 + 'px';
             overlay = '<div class="aprs-symbol aprs-symboltable-overlay" style="' + stylesToString(s) + '"></div>';
         }
     } else if (msg.lat && msg.lon) {
@@ -210,9 +235,9 @@ PacketMessagePanel.prototype.pushMessage = function(msg) {
         'style="' + stylesToString(styles) + '"'
     ].join(' ');
     if (msg.lat && msg.lon) {
-        link = Utils.linkToMap(source, overlay, attrs);
+        link = Utils.linkToMap(source, overlay, attrs, true);
     } else {
-        link = '<div ' + attrs + '>' + overlay + '</div>'
+        link = Utils.linkToMap(null, overlay, attrs, true);
     }
 
     // Compose comment
@@ -226,7 +251,7 @@ PacketMessagePanel.prototype.pushMessage = function(msg) {
             comment += 'Temperature ' + msg.weather.temperature.toFixed(1) + '&deg;C';
         }
         if (msg.weather.humidity) {
-            comment += (comment? ', ':'') + 'Humidity ' + msg.weather.humidity + '%';
+            comment += (comment? ', ':'') + 'Humidity ' + Utils.htmlEscape(msg.weather.humidity) + '%';
         }
         if (msg.weather.barometricpressure) {
             comment += (comment? ', ':'') + 'Pressure ' + msg.weather.barometricpressure.toFixed(1) + ' mbar';
@@ -245,7 +270,8 @@ PacketMessagePanel.prototype.pushMessage = function(msg) {
     } else if (msg.device) {
         // Add device model and manufacturer
         comment = msg.device.manufacturer?
-            msg.device.manufacturer + ' ' + msg.device.device : msg.device;
+            Utils.htmlEscape(msg.device.manufacturer + ' ' + msg.device.device)
+            : Utils.htmlEscape(msg.device);
     } else if (msg.country) {
         // Add country flag and name in lieu of comment
         comment = Lookup.cdata2country([msg.ccode, msg.country]);
@@ -302,7 +328,7 @@ PocsagMessagePanel.prototype.pushMessage = function(msg) {
     var $b = $(this.el).find('tbody');
     $b.append($(
         '<tr>' +
-            '<td class="address">' + msg.address + '</td>' +
+            '<td class="address">' + Utils.htmlEscape(msg.address) + '</td>' +
             '<td class="message">' + Utils.htmlEscape(msg.message) + '</td>' +
         '</tr>'
     ));
@@ -342,18 +368,19 @@ PageMessagePanel.prototype.render = function() {
 
 PageMessagePanel.prototype.pushMessage = function(msg) {
     // Get color from the message, default to white
-    var color = msg.hasOwnProperty('color')? msg.color : '#FFF';
+    var color = safeMessageColor(msg.color, '#FFF');
 
     // Get channel from the message (FLEX only)
-    var channel = msg.hasOwnProperty('channel')? '/' + msg.channel : '';
+    var channel = msg.hasOwnProperty('channel')? '/' + Utils.htmlEscape(msg.channel) : '';
 
 
     // Append message header (address, time, etc)
     var $b = $(this.el).find('tbody');
     $b.append($(
         '<tr>' +
-            '<td class="address">' + msg.address + '</td>' +
-            '<td class="mode">' + msg.mode + msg.baud + channel + '</td>' +
+            '<td class="address">' + Utils.htmlEscape(msg.address) + '</td>' +
+            '<td class="mode">' + Utils.htmlEscape(msg.mode) + Utils.htmlEscape(msg.baud) +
+                Utils.htmlEscape(channel) + '</td>' +
             '<td class="timestamp" style="text-align:right;">' + Utils.HHMMSS(msg.timestamp) + '</td>' +
         '</tr>'
     ).css('background-color', color).css('color', '#000'));
@@ -405,14 +432,14 @@ HfdlMessagePanel.prototype.render = function() {
 };
 
 HfdlMessagePanel.prototype.pushMessage = function(msg) {
-    var bcolor = msg.color?  msg.color : '#000';
-    var fcolor = msg.color?  '#000' : '#FFF';
-    var data   = msg.type?   msg.type : '';
+    var bcolor = safeMessageColor(msg.color, '#000');
+    var fcolor = bcolor === '#000' ? '#FFF' : '#000';
+    var data   = msg.type? Utils.htmlEscape(msg.type) : '';
 
     // Only linkify ICAO-compliant flight IDs
     var flight =
       !msg.flight? ''
-    : !msg.flight.match(/^[A-Z]{3}[0-9]+[A-Z]*$/)? msg.flight
+    : !msg.flight.match(/^[A-Z]{3}[0-9]+[A-Z]*$/)? Utils.htmlEscape(msg.flight)
     : Utils.linkifyFlight(msg.flight);
 
     var aircraft =
@@ -421,7 +448,7 @@ HfdlMessagePanel.prototype.pushMessage = function(msg) {
     : '';
 
     var tstamp =
-      msg.msgtime?   '<b>' + msg.msgtime + '</b>'
+      msg.msgtime?   '<b>' + Utils.htmlEscape(msg.msgtime) + '</b>'
     : msg.timestamp? Utils.HHMMSS(msg.timestamp)
     : '';
 
@@ -430,18 +457,18 @@ HfdlMessagePanel.prototype.pushMessage = function(msg) {
     if (msg.lat && msg.lon) {
         data += '@' + msg.lat.toFixed(4) + ',' + msg.lon.toFixed(4);
     }
-    if (msg.altitude)    data += ' &UpArrowBar;' + msg.altitude + 'ft';
-    if (msg.vspeed>0)    data += ' &UpperRightArrow;' + msg.vspeed + 'ft/m';
-    if (msg.vspeed<0)    data += ' &LowerRightArrow;' + (-msg.vspeed) + 'ft/m';
-    if (msg.speed)       data += ' &rightarrow;' + msg.speed + 'kt';
-    if (msg.origin)      data += ' &lsh;' + msg.origin;
-    if (msg.destination) data += ' &rdsh;' + msg.destination;
+    if (msg.altitude)    data += ' &UpArrowBar;' + Utils.htmlEscape(msg.altitude) + 'ft';
+    if (msg.vspeed>0)    data += ' &UpperRightArrow;' + Utils.htmlEscape(msg.vspeed) + 'ft/m';
+    if (msg.vspeed<0)    data += ' &LowerRightArrow;' + Utils.htmlEscape(-msg.vspeed) + 'ft/m';
+    if (msg.speed)       data += ' &rightarrow;' + Utils.htmlEscape(msg.speed) + 'kt';
+    if (msg.origin)      data += ' &lsh;' + Utils.htmlEscape(msg.origin);
+    if (msg.destination) data += ' &rdsh;' + Utils.htmlEscape(msg.destination);
 
     // If no location data in the message, use message type as data
-    if (!data.length && msg.type) data = msg.type;
+    if (!data.length && msg.type) data = Utils.htmlEscape(msg.type);
 
     // Make data point to the map
-    if (data.length && msg.mapid) data = Utils.linkToMap(msg.mapid, data);
+    if (data.length && msg.mapid) data = Utils.linkToMap(msg.mapid, data, "", true);
 
     // Add message direction to the aircraft
     //if (aircraft && msg.direction) {
@@ -517,7 +544,7 @@ AdsbMessagePanel.prototype.pushMessage = function(msg) {
     var odd = false;
     msg.aircraft.forEach(entry => {
         // Signal strength
-        var rssi = entry.rssi? entry.rssi + '&nbsp;dB' : '';
+        var rssi = entry.rssi? Utils.htmlEscape(entry.rssi) + '&nbsp;dB' : '';
 
         // Flight identificators
         var flight =
@@ -533,25 +560,25 @@ AdsbMessagePanel.prototype.pushMessage = function(msg) {
         if (flag) aircraft = flag + '&nbsp;' + aircraft;
 
         // Altitude and climb / descent
-        var alt  = entry.altitude? '' + entry.altitude : '';
+        var alt  = entry.altitude? Utils.htmlEscape(entry.altitude) : '';
         if (entry.vspeed) {
             var vspeed = entry.vspeed;
-            vspeed = vspeed>0? vspeed + '&uarr;' : (-vspeed) + '&darr;';
+            vspeed = vspeed>0? Utils.htmlEscape(vspeed) + '&uarr;' : Utils.htmlEscape(-vspeed) + '&darr;';
             alt    = vspeed + '&nbsp'.repeat(6 - alt.length) + alt;
         }
 
         // Speed and direction
-        var speed = entry.speed? '' + entry.speed : '';
+        var speed = entry.speed? Utils.htmlEscape(entry.speed) : '';
         if (entry.course) {
             var dir = Utils.degToCompass(entry.course);
             speed = dir + '&nbsp'.repeat(5 - speed.length) + speed;
         }
 
         // Replace squawk with emergency status, if present
-        var squawk = entry.squawk? entry.squawk : '';
+        var squawk = entry.squawk? Utils.htmlEscape(entry.squawk) : '';
         if (entry.emergency && (entry.emergency!=='NONE')) {
             squawk = '<div style="color:white;background-color:red;"><b>&nbsp;'
-                + entry.emergency + '&nbsp;</b></div>';
+                + Utils.htmlEscape(entry.emergency) + '&nbsp;</b></div>';
         }
 
         // Compute distance to the receiver
@@ -616,39 +643,41 @@ DscMessagePanel.prototype.render = function() {
 };
 
 DscMessagePanel.prototype.pushMessage = function(msg) {
-    var bcolor = msg.color? msg.color : '#000';
-    var fcolor = msg.color? '#000' : '#FFF';
+    var bcolor = safeMessageColor(msg.color, '#000');
+    var fcolor = bcolor === '#000' ? '#FFF' : '#000';
     var src    = msg.src? Utils.linkifyVessel(msg.src) : '';
     var dst    = msg.dst? Utils.linkifyVessel(msg.dst) : '';
-    var data   = (
+    var data   = Utils.htmlEscape((
       (msg.category? ' ' + msg.category : '')
     + (msg.format?   ' ' + msg.format : '')
     + (msg.eos?      ' ' + msg.eos : '')
     + (!msg.ecc && !msg.data? ' ?' : '')
-    ).trim().toUpperCase();
+    ).trim().toUpperCase());
 
     // Format timestamp
     var timestamp =
-      msg.time?      '<b>' + msg.time + '</b>'
+      msg.time?      '<b>' + Utils.htmlEscape(msg.time) + '</b>'
     : msg.timestamp? Utils.HHMMSS(msg.timestamp)
     : '';
 
     // Format debugging data
     var symbols = '';
     if (msg.data) {
-        symbols = msg.data.replace(
-            /(.*)\|(.*)/, ' $1<span style="opacity:0.5;"> | $2 &hellip;</span>'
-        );
+        var dataParts = String(msg.data).match(/(.*)\|(.*)/);
+        symbols = dataParts
+            ? Utils.htmlEscape(dataParts[1]) + '<span style="opacity:0.5;"> | '
+                + Utils.htmlEscape(dataParts[2]) + ' &hellip;</span>'
+            : Utils.htmlEscape(msg.data);
     }
 
     // Combine remaining attributes into a message
     var message = (
-      (msg.distress? ' ' + msg.distress : '')
+      (msg.distress? ' ' + Utils.htmlEscape(msg.distress) : '')
     + (msg.id?     ' SHIP ' + Utils.linkifyVessel(msg.id) : '')
-    + (msg.loc?    ' AT ' + msg.loc : '')
-    + (msg.num?    ' DIAL ' + msg.num : '')
-    + (msg.rxfreq? ' RX ' + Utils.printFreq(msg.rxfreq) : '')
-    + (msg.txfreq? ' TX ' + Utils.printFreq(msg.txfreq) : '')
+    + (msg.loc?    ' AT ' + Utils.htmlEscape(msg.loc) : '')
+    + (msg.num?    ' DIAL ' + Utils.htmlEscape(msg.num) : '')
+    + (msg.rxfreq? ' RX ' + Utils.htmlEscape(Utils.printFreq(msg.rxfreq)) : '')
+    + (msg.txfreq? ' TX ' + Utils.htmlEscape(Utils.printFreq(msg.txfreq)) : '')
     + symbols
     ).trim();
 
@@ -710,18 +739,18 @@ IsmMessagePanel.prototype.render = function() {
 IsmMessagePanel.prototype.formatAttr = function(msg, key) {
     return('<td class="attr" colspan="2">' +
         '<div style="border-bottom:1px dotted;">' +
-        '<span style="float:left;">' + key + '</span>' +
-        '<span style="float:right;word-break:break-all;">' + msg[key] + '</span>' +
+        '<span style="float:left;">' + Utils.htmlEscape(key) + '</span>' +
+        '<span style="float:right;word-break:break-all;">' + Utils.htmlEscape(msg[key]) + '</span>' +
         '</div></td>'
     );
 };
 
 IsmMessagePanel.prototype.pushMessage = function(msg) {
     // Get basic information, assume white color if missing
-    var address = msg.hasOwnProperty('id')? msg.id : '???';
-    var device  = msg.hasOwnProperty('model')? msg.model : '';
+    var address = msg.hasOwnProperty('id')? Utils.htmlEscape(msg.id) : '???';
+    var device  = msg.hasOwnProperty('model')? Utils.htmlEscape(msg.model) : '';
     var tstamp  = msg.hasOwnProperty('timestamp')? Utils.HHMMSS(msg.timestamp) : '';
-    var color   = msg.hasOwnProperty('color')? msg.color : '#FFF';
+    var color   = safeMessageColor(msg.color, '#FFF');
 
     // Append message header (address, time, etc)
     var $b = $(this.el).find('tbody');
@@ -791,25 +820,32 @@ SstvMessagePanel.prototype.pushMessage = function(msg) {
 //        $b.append($('<tr><td class="message">' + msg.message + '</td></tr>'));
 //        this.scrollToBottom();
     }
-    else if(msg.width>0 && msg.height>0 && !msg.hasOwnProperty('line')) {
+    else if(validImageDimensions(msg.width, msg.height) && !msg.hasOwnProperty('line')) {
         var f = msg.frequency>0? ' at ' + Math.floor(msg.frequency/1000) + 'kHz' : '';
-        var h = '<div>' + msg.timestamp + ' ' + msg.width + 'x' + msg.height +
-            ' ' + msg.sstvMode + f + '</div>';
-        var c = '<div onclick="Utils.saveCanvas(\'' + msg.filename + '\');">' +
-            '<canvas class="frame" id="' + msg.filename +
-            '" width="' + msg.width + '" height="' + msg.height +
-            '"></canvas></div>';
-        // Append a new canvas
-        $b.append($('<tr><td class="message">' + h + c + '</td></tr>'));
+        var label = [msg.timestamp, msg.width + 'x' + msg.height, msg.sstvMode, f].join(' ');
+        var canvasId = 'sstv-frame-' + (++messageCanvasId);
+        var filename = String(msg.filename || canvasId).replace(/[^a-z0-9_.-]/gi, '_');
+        var $canvas = $('<canvas class="frame"></canvas>').attr({
+            id: canvasId,
+            width: msg.width,
+            height: msg.height,
+        });
+        var $container = $('<div></div>').append($canvas).on('click', function() {
+            Utils.saveCanvas(canvasId, filename);
+        });
+        var $cell = $('<td class="message"></td>').append($('<div></div>').text(label), $container);
+        $b.append($('<tr></tr>').append($cell));
         $b.scrollTop($b[0].scrollHeight);
         // Save canvas context and dimensions for future use
         this.ctx    = $(this.el).find('canvas').get(-1).getContext("2d");
         this.width  = msg.width;
         this.height = msg.height;
     }
-    else if(msg.width>0 && msg.height>0 && msg.line>=0 && msg.hasOwnProperty('pixels')) {
+    else if(validImageDimensions(msg.width, msg.height) && msg.width === this.width && msg.line>=0 && msg.line<this.height && typeof msg.pixels === 'string' && msg.pixels.length <= msg.width * 4 && msg.hasOwnProperty('pixels')) {
         // Will copy pixels to img
-        var pixels = atob(msg.pixels);
+        var pixels = decodeBoundedBase64(msg.pixels, msg.width * 4);
+        if (pixels === null) return;
+        if (pixels.length !== msg.width * 3 || !this.ctx) return;
         var img = this.ctx.createImageData(msg.width, 1);
         // Convert BMP BGR pixels into HTML RGBA pixels
         for (var x = 0; x < msg.width; x++) {
@@ -860,51 +896,65 @@ FaxMessagePanel.prototype.pushMessage = function(msg) {
 //        $b.append($('<tr><td class="message">' + msg.message + '</td></tr>'));
 //        this.scrollToBottom();
     }
-    else if(msg.width>0 && msg.height>0 && !msg.hasOwnProperty('line')) {
+    else if(validImageDimensions(msg.width, msg.height) && !msg.hasOwnProperty('line')) {
         var f = msg.frequency>0? ' at ' + Math.floor(msg.frequency/1000) + 'kHz' : '';
-        var h = '<div>' + msg.timestamp + ' ' + msg.width + 'x' + msg.height +
-            ' ' + msg.faxMode + f + '</div>';
-        var c = '<div onclick="Utils.saveCanvas(\'' + msg.filename + '\');">' +
-            '<canvas class="frame" id="' + msg.filename +
-            '" width="' + msg.width + '" height="' + msg.height +
-            '"></canvas></div>';
-        // Append a new canvas
-        $b.append($('<tr><td class="message">' + h + c + '</td></tr>'));
+        var label = [msg.timestamp, msg.width + 'x' + msg.height, msg.faxMode, f].join(' ');
+        var canvasId = 'fax-frame-' + (++messageCanvasId);
+        var filename = String(msg.filename || canvasId).replace(/[^a-z0-9_.-]/gi, '_');
+        var $canvas = $('<canvas class="frame"></canvas>').attr({
+            id: canvasId,
+            width: msg.width,
+            height: msg.height,
+        });
+        var $container = $('<div></div>').append($canvas).on('click', function() {
+            Utils.saveCanvas(canvasId, filename);
+        });
+        var $cell = $('<td class="message"></td>').append($('<div></div>').text(label), $container);
+        $b.append($('<tr></tr>').append($cell));
         this.scrollToBottom();
         // Save canvas context and dimensions for future use
         this.ctx    = $(this.el).find('canvas').get(-1).getContext("2d");
         this.width  = msg.width;
         this.height = msg.height;
     }
-    else if(msg.width>0 && msg.height>0 && msg.line>=0 && msg.ended) {
+    else if(validImageDimensions(msg.width, msg.height) && msg.width === this.width && msg.line>0 && msg.line<=this.height && msg.ended && this.ctx) {
         const canvas  = $(this.el).find('canvas').get(-1);
+        if (!canvas) return;
         const image   = this.ctx.getImageData(0, 0, canvas.width, canvas.height);
         canvas.height = msg.line;
         this.height   = msg.line;
         this.ctx.putImageData(image, 0, 0);
     }
-    else if(msg.width>0 && msg.height>0 && msg.line>=0 && msg.hasOwnProperty('pixels')) {
+    else if(validImageDimensions(msg.width, msg.height) && msg.width === this.width && msg.line>=0 && msg.line<this.height && typeof msg.pixels === 'string' && msg.pixels.length <= msg.width * 4 && msg.hasOwnProperty('pixels') && this.ctx) {
         // Will copy pixels to img
         var img = this.ctx.createImageData(msg.width, 1);
         var pixels;
 
         // Unpack RLE-compressed line of pixels
         if(!msg.rle) {
-            pixels = atob(msg.pixels);
+            pixels = decodeBoundedBase64(msg.pixels, msg.width * 4);
+            if (pixels === null) return;
         } else {
-            var rle = atob(msg.pixels);
+            var rle = decodeBoundedBase64(msg.pixels, msg.width * 4);
+            if (rle === null) return;
             pixels = '';
             for(var x=0 ; x<rle.length ; ) {
                 var c = rle.charCodeAt(x);
+                var run;
                 if(c<128) {
-                    pixels += rle.slice(x+1, x+c+2);
+                    run = rle.slice(x+1, x+c+2);
                     x += c + 2;
                 } else {
-                    pixels += rle.slice(x+1, x+2).repeat(c-128+2)
+                    run = rle.slice(x+1, x+2).repeat(c-128+2);
                     x += 2;
                 }
+                if (!run.length || pixels.length + run.length > msg.width * (msg.depth == 8 ? 1 : 3)) return;
+                pixels += run;
             }
         }
+
+        var expectedPixelBytes = msg.width * (msg.depth == 8 ? 1 : 3);
+        if (pixels.length !== expectedPixelBytes) return;
 
         // Convert BMP BGR pixels into HTML RGBA pixels
         if(msg.depth==8) {
@@ -1022,8 +1072,8 @@ SkimmerMessagePanel.prototype.pushMessage = function(msg) {
     var f = Math.floor(this.texts[j].freq / 100.0) / 10.0;
     var d = Math.floor(Math.max(0, Math.min(100, 100.0 * this.texts[j].db / 30.0)));
     body.rows[j].cells[0].children[0].style.width = '' + d + '%';
-    body.rows[j].cells[0].children[1].innerText = f.toFixed(1);
-    body.rows[j].cells[1].innerText = this.texts[j].text;
+    body.rows[j].cells[0].children[1].textContent = f.toFixed(1);
+    body.rows[j].cells[1].textContent = this.texts[j].text;
 
     // Remove stale rows, recolor as needed
     for (var j = 0 ; j < this.texts.length ; j++) {
@@ -1129,21 +1179,21 @@ MeshtasticMessagePanel.prototype.formatAttr = function(data, key, prefix = '') {
     // Output regular values as they are
     return('<tr><td colspan="4">' +
         '<div style="border-bottom:1px dotted;">' +
-        '<span style="float:left;">' + prefix + key + '</span>' +
-        '<span style="float:right;word-break:break-all;">' + v + '</span>' +
+        '<span style="float:left;">' + Utils.htmlEscape(prefix + key) + '</span>' +
+        '<span style="float:right;word-break:break-all;">' + Utils.htmlEscape(v) + '</span>' +
         '</div></td></tr>'
     );
 };
 
 MeshtasticMessagePanel.prototype.pushMessage = function(msg) {
-    var bcolor = msg.color? msg.color : '#000';
-    var fcolor = msg.color? '#000' : '#FFF';
+    var bcolor = safeMessageColor(msg.color, '#000');
+    var fcolor = bcolor === '#000' ? '#FFF' : '#000';
     var tstamp = msg.timestamp? Utils.HHMMSS(msg.timestamp) : '';
     var text   = msg.type || msg.longName || msg.comment || '';
     var id     = this.makeAddr(msg.src);
     var src    = Utils.linkToMap(id, msg.nickName || id);
     var dst    = msg.dst == 0xFFFFFFFF? 'ALL'
-               : (msg.dstNickName || this.makeAddr(msg.dst));
+               : Utils.htmlEscape(msg.dstNickName || this.makeAddr(msg.dst));
 
     // Append report
     var $b = $(this.el).find('tbody');
@@ -1152,7 +1202,7 @@ MeshtasticMessagePanel.prototype.pushMessage = function(msg) {
             '<td class="timestamp">' + tstamp + '</td>' +
             '<td class="src">' + src + '</td>' +
             '<td class="dst">' + dst + '</td>' +
-            '<td class="data" style="text-align:left;">' + text + '</td>' +
+            '<td class="data" style="text-align:left;">' + Utils.htmlEscape(text) + '</td>' +
         '</tr>'
     ).css('background-color', bcolor).css('color', fcolor));
 

@@ -138,7 +138,7 @@ var mapExtraLayers = [
     {
         name: 'Maidenhead-QTH',
         createLayer: async function () {
-            await $.when($.getScript('https://ha8tks.github.io/Leaflet.Maidenhead/src/L.Maidenhead.js'));
+            await $.when($.getScript('static/lib/leaflet-maidenhead-c15c07b.js'));
             return L.maidenhead({ color: 'rgba(100, 100, 100, 0.6)' });
         }
     },
@@ -253,12 +253,12 @@ MapManager.prototype.initializeMap = async function(receiver_gps, api_key, weath
         var self = this;
 
         // load Leaflet CSS first
-        await fetchStyleSheet('https://unpkg.com/leaflet@1.9.4/dist/leaflet.css');
+        await fetchStyleSheet('static/lib/leaflet/leaflet.css');
         // now load Leaflet JS
-        await $.getScript('https://unpkg.com/leaflet@1.9.4/dist/leaflet.js');
+        await $.getScript('static/lib/leaflet/leaflet.js');
         // load geodesic and textpath plugins
-        await $.getScript('https://cdn.jsdelivr.net/npm/leaflet.geodesic');
-        await $.getScript('https://cdn.jsdelivr.net/npm/leaflet-textpath@1.2.3/leaflet.textpath.min.js');
+        await $.getScript('static/lib/leaflet.geodesic-2.7.2.min.js');
+        await $.getScript('static/lib/leaflet/leaflet.textpath-1.2.3.js');
 
         // create map
         map = L.map('openwebrx-map', { zoomControl: false, worldCopyJump: true }).setView([receiver_gps.lat, receiver_gps.lon], 5);
@@ -267,7 +267,7 @@ MapManager.prototype.initializeMap = async function(receiver_gps, api_key, weath
         new L.Control.Zoom({ position: 'bottomright' }).addTo(map);
 
         // add night overlay
-        $.getScript('https://unpkg.com/@joergdietrich/leaflet.terminator@1.1.0/L.Terminator.js').done(function () {
+        $.getScript('static/lib/leaflet/L.Terminator-1.1.0.js').done(function () {
             var pane = map.createPane('nite');
             pane.style.zIndex = 201;
             pane.style.pointerEvents = 'none !important';

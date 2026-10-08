@@ -6,6 +6,7 @@ from owrx.modes import Modes, AnalogMode
 from owrx.breadcrumb import Breadcrumb, BreadcrumbItem, BreadcrumbMixin
 import json
 import math
+import html
 
 import logging
 
@@ -44,11 +45,11 @@ class BookmarksController(AuthorizationMixin, BreadcrumbMixin, WebpageController
             </table>
         """.format(
             bookmarks="".join(self.render_bookmark(b) for b in bookmarks) if bookmarks else emptyText,
-            modes=json.dumps({m.modulation: {
+            modes=html.escape(json.dumps({m.modulation: {
                 "name"       : m.name,
                 "analog"     : isinstance(m, AnalogMode),
                 "underlying" : m.underlying if hasattr(m, "underlying") else []
-            } for m in Modes.getAvailableClientModes() })
+            } for m in Modes.getAvailableClientModes() }), quote=True)
         )
 
     def render_bookmark(self, bookmark: Bookmark):
@@ -90,15 +91,15 @@ class BookmarksController(AuthorizationMixin, BreadcrumbMixin, WebpageController
             </tr>
         """.format(
             id=id(bookmark),
-            name=bookmark.getName(),
+            name=html.escape(str(bookmark.getName()), quote=True),
             # TODO render frequency in si units
             frequency=bookmark.getFrequency(),
             rendered_frequency=render_frequency(bookmark.getFrequency()),
-            modulation=name1 if mode1 is None else mode1.modulation,
-            underlying=name2 if mode2 is None else mode2.modulation,
-            modulation_name=name1 if mode1 is None else mode1.name,
-            underlying_name="None" if not name2 else name2 if mode2 is None else mode2.name,
-            description=bookmark.getDescription(),
+            modulation=html.escape(str(name1 if mode1 is None else mode1.modulation), quote=True),
+            underlying=html.escape(str(name2 if mode2 is None else mode2.modulation), quote=True),
+            modulation_name=html.escape(str(name1 if mode1 is None else mode1.name), quote=True),
+            underlying_name=html.escape(str("None" if not name2 else name2 if mode2 is None else mode2.name), quote=True),
+            description=html.escape(str(bookmark.getDescription()), quote=True),
             scannable="true" if scan else "false",
             scannable_check="&check;" if scan else "",
         )

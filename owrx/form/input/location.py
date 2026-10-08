@@ -4,6 +4,7 @@ from owrx.form.error import ValidationError
 from owrx.config import Config
 
 import logging
+import html
 
 logger = logging.getLogger(__name__)
 
@@ -33,11 +34,11 @@ class LocationInput(Input):
                 <div class="col map-input" data-key="{key}" for="{id}"></div>
             </div>
         """.format(
-            id=self.id,
+            id=html.escape(str(self.id), quote=True),
             rowclass="is-invalid" if errors else "",
             inputs=self.render_input(value, errors),
             errors=self.render_errors(errors),
-            key=Config.get()["google_maps_api_key"],
+            key=html.escape(str(Config.get()["google_maps_api_key"]), quote=True),
         )
 
     def render_input(self, value, errors):
@@ -50,10 +51,10 @@ class LocationInput(Input):
                 step="any" {disabled}>
             </div>
         """.format(
-            id="{0}-{1}".format(self.id, id),
-            label=self.label,
-            classes=self.input_classes(errors),
-            value=value[id],
+            id=html.escape("{0}-{1}".format(self.id, id), quote=True),
+            label=html.escape(str(self.label), quote=True),
+            classes=html.escape(self.input_classes(errors), quote=True),
+            value=html.escape(str(value[id]), quote=True),
             disabled="disabled" if self.disabled else "",
         )
 

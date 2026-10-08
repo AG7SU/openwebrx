@@ -34,7 +34,6 @@ from abc import ABC, abstractmethod
 from http.cookies import SimpleCookie
 from datetime import datetime
 
-import ipaddress
 import posixpath
 import re
 import logging
@@ -44,7 +43,7 @@ logger.setLevel(logging.INFO)
 
 
 class Request(object):
-    def __init__(self, url, method, headers, local):
+    def __init__(self, url, method, headers, local, client_address="unknown", secure=False):
         parsed_url = urlparse(url)
         self.path = parsed_url.path
         self.query = parse_qs(parsed_url.query)
@@ -53,6 +52,8 @@ class Request(object):
         self.headers = headers
         self.cookies = SimpleCookie()
         self.local = local;
+        self.client_address = client_address
+        self.secure = secure
         if "Cookie" in headers:
             self.cookies.load(headers["Cookie"])
 
@@ -122,7 +123,7 @@ class Router(object):
             RegexRoute(
                 "^/settings/sdr/([^/]+)$", SdrDeviceController, method="POST", options={"action": "processFormData"}
             ),
-            RegexRoute("^/settings/deletesdr/([^/]+)$", SdrDeviceController, options={"action": "deleteDevice"}),
+            RegexRoute("^/settings/deletesdr/([^/]+)$", SdrDeviceController, method="POST", options={"action": "deleteDevice"}),
             RegexRoute("^/settings/sdr/([^/]+)/newprofile$", NewProfileController),
             RegexRoute("^/settings/sdr/([^/]+)/newprofile/([^/]+)$", NewProfileController),
             RegexRoute(
@@ -141,16 +142,19 @@ class Router(object):
             RegexRoute(
                 "^/settings/sdr/([^/]+)/deleteprofile/([^/]+)$",
                 SdrProfileController,
+                method="POST",
                 options={"action": "deleteProfile"},
             ),
             RegexRoute(
                 "^/settings/sdr/([^/]+)/moveprofileup/([^/]+)$",
                 SdrProfileController,
+                method="POST",
                 options={"action": "moveProfileUp"},
             ),
             RegexRoute(
                 "^/settings/sdr/([^/]+)/moveprofiledown/([^/]+)$",
                 SdrProfileController,
+                method="POST",
                 options={"action": "moveProfileDown"},
             ),
             StaticRoute("/settings/bookmarks", BookmarksController),
@@ -180,7 +184,7 @@ class Router(object):
             ),
             StaticRoute("/login", SessionController, options={"action": "loginAction"}),
             StaticRoute("/login", SessionController, method="POST", options={"action": "processLoginAction"}),
-            StaticRoute("/logout", SessionController, options={"action": "logoutAction"}),
+            StaticRoute("/logout", SessionController, method="POST", options={"action": "logoutAction"}),
             StaticRoute("/pwchange", ProfileController),
             StaticRoute("/pwchange", ProfileController, method="POST", options={"action": "processPwChange"}),
             StaticRoute("/imageupload", ImageUploadController),
@@ -234,7 +238,15 @@ class RequestHandler(BaseHTTPRequestHandler):
 
     def _build_request(self, method):
         try:
-            local = ipaddress.ip_address(self.address_string()).is_private
+            peer_ip = self.client_address[0]
+            from owrx.security import resolve_request_identity
+            client_address, local = resolve_request_identity(
+                peer_ip, self.headers.get("X-Forwarded-For")
+            )
         except Exception:
+            client_address = None
             local = False
-        return Request(self.path, method, self.headers, local)
+        if client_address is None:
+            client_address = self.client_address[0] if self.client_address else "unknown"
+        secure = hasattr(self.connection, "cipher") and self.connection.cipher() is not None
+        return Request(self.path, method, self.headers, local, client_address, secure)

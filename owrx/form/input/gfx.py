@@ -1,6 +1,7 @@
 from abc import ABCMeta, abstractmethod
 from owrx.form.input import Input
 from datetime import datetime
+import html
 
 
 class ImageInput(Input, metaclass=ABCMeta):
@@ -16,10 +17,10 @@ class ImageInput(Input, metaclass=ABCMeta):
                 <button type="button" class="btn btn-secondary restore">Restore original image</button>
             </div>
         """.format(
-            id=self.id,
-            label=self.label,
-            url=self.cachebuster(self.getUrl()),
-            classes=" ".join(self.getImgClasses()),
+            id=html.escape(str(self.id), quote=True),
+            label=html.escape(str(self.label), quote=True),
+            url=html.escape(self.cachebuster(self.getUrl()), quote=True),
+            classes=html.escape(" ".join(self.getImgClasses()), quote=True),
             maxsize=self.getMaxSize(),
         )
 

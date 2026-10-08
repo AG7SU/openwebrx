@@ -27,6 +27,9 @@ This is the **improved version** of the OpenWebRX online SDR. The pre-built Open
 * Foldable receiver panel with configurable opacity.
 * Spectrum display.
 
+For self-hosted deployments, see the [HAProxy, firewall, and NetBird security
+guide](docs/deployment-security.md) before exposing a receiver publicly.
+
 Original OpenWebRX
 =========
 

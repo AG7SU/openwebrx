@@ -13,19 +13,37 @@ function Header(el) {
     this.init_rx_photo();
 };
 
+Header.applyPolicyRefresh = function() {
+    var container = document.querySelector('.webrx-top-container');
+    if (!container) return;
+    if (document.head.querySelector('meta[http-equiv="refresh"]')) return;
+
+    var page = window.location.pathname.split('/').pop();
+    var sessionTimeout = Number(container.dataset.sessionTimeout);
+    if (page !== '' || !Number.isFinite(sessionTimeout) || sessionTimeout <= 0) return;
+
+    var refresh = document.createElement('meta');
+    refresh.httpEquiv = 'refresh';
+    refresh.content = sessionTimeout + '; url=' + container.dataset.usagePolicyUrl;
+    document.head.appendChild(refresh);
+};
+
 Header.prototype.setDetails = function(details) {
     // Set receiver name
     var title = this.el.find('.webrx-rx-title');
-    title.html(details['receiver_name']);
+    title.text(details['receiver_name'] || '');
 
     // If receiver name has readable text, use it for window title
     var titleText = title.prop('textContent');
     if (titleText.length>0) document.title = 'OpenWebRX+ | ' + titleText;
 
     // Set the rest of details
-    this.el.find('.webrx-rx-desc').html(details['receiver_location'] + ' | Loc: ' + details['locator'] + ', ASL: ' + details['receiver_asl'] + ' m');
-    this.el.find('.webrx-rx-photo-title').html(details['photo_title']);
-    this.el.find('.webrx-rx-photo-desc').html(details['photo_desc']);
+    this.el.find('.webrx-rx-desc').text(
+        (details['receiver_location'] || '') + ' | Loc: ' + (details['locator'] || '')
+        + ', ASL: ' + (details['receiver_asl'] || '') + ' m'
+    );
+    this.el.find('.webrx-rx-photo-title').text(details['photo_title'] || '');
+    this.el.find('.webrx-rx-photo-desc').text(details['photo_desc'] || '');
 };
 
 Header.prototype.init_rx_photo = function() {
@@ -71,5 +89,10 @@ $.fn.header = function() {
 };
 
 $(function(){
+    Header.applyPolicyRefresh();
+    $.ajaxPrefilter(function(options, originalOptions, xhr) {
+        var token = $('.webrx-top-container').attr('data-csrf-token');
+        if (token) xhr.setRequestHeader('X-CSRF-Token', token);
+    });
     $('.webrx-top-container').header();
 });

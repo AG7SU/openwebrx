@@ -2,7 +2,7 @@ from abc import ABC
 from owrx.modes import Modes
 from owrx.form.input.validator import Validator
 from owrx.form.input.converter import Converter, NullConverter, IntConverter, FloatConverter, EnumConverter, TextConverter
-from pycsdr.types import AgcProfile
+from owrx.security import sanitize_html
 from enum import Enum
 
 import html
@@ -39,10 +39,10 @@ class Input(ABC):
                 </div>
             </div>
         """.format(
-            id=self.id,
-            label=self.label,
+            id=html.escape(str(self.id), quote=True),
+            label=html.escape(str(self.label)),
             input=input,
-            infotext="<small>{text}</small>".format(text=self.infotext) if self.infotext else "",
+            infotext="<small>{text}</small>".format(text=sanitize_html(self.infotext)) if self.infotext else "",
             removable="removable" if self.removable else "",
             removebutton='<button type="button" class="btn btn-sm btn-danger option-remove-button">Remove</button>'
             if self.removable
@@ -68,10 +68,19 @@ class Input(ABC):
         return props
 
     def render_input_properties(self, value, error):
-        return " ".join('{}="{}"'.format(prop, html.escape(value)) for prop, value in self.input_properties(value, error).items())
+        return " ".join(
+            '{}="{}"'.format(
+                html.escape(str(prop), quote=True),
+                html.escape("" if value is None else str(value), quote=True),
+            )
+            for prop, value in self.input_properties(value, error).items()
+        )
 
     def render_errors(self, errors):
-        return "".join("""<div class="invalid-feedback">{msg}</div>""".format(msg=e) for e in errors)
+        return "".join(
+            """<div class="invalid-feedback">{msg}</div>""".format(msg=html.escape(str(e)))
+            for e in errors
+        )
 
     def render_input_group(self, value, errors):
         return """
@@ -144,7 +153,7 @@ class NumberInput(Input):
                     <span class="input-group-text">{append}</span>
                 </div>
             """.format(
-                append=self.append
+                append=html.escape(str(self.append))
             )
         else:
             append = ""
@@ -177,7 +186,7 @@ class TextAreaInput(Input):
             <textarea {properties}>{value}</textarea>
         """.format(
             properties=self.render_input_properties(value, errors),
-            value=value,
+            value=html.escape("" if value is None else str(value)),
         )
 
     def input_properties(self, value, errors):
@@ -203,11 +212,11 @@ class CheckboxInput(Input):
                 </label>
             </div>
         """.format(
-            id=self.id,
-            classes=self.input_classes(errors),
+            id=html.escape(str(self.id), quote=True),
+            classes=html.escape(self.input_classes(errors), quote=True),
             checked="checked" if value else "",
             disabled="disabled" if self.disabled else "",
-            checkboxText=self.checkboxText,
+            checkboxText=html.escape(str(self.checkboxText)),
         )
 
     def input_classes(self, error):
@@ -252,10 +261,10 @@ class MultiCheckboxInput(Input):
             </label>
           </div>
         """.format(
-            id=self.checkbox_id(option),
-            classes=self.input_classes(errors),
+            id=html.escape(str(self.checkbox_id(option)), quote=True),
+            classes=html.escape(self.input_classes(errors), quote=True),
             checked="checked" if option.value in value else "",
-            checkboxText=option.text,
+            checkboxText=html.escape(str(option.text)),
             disabled="disabled" if self.disabled else "",
         )
 
@@ -310,8 +319,8 @@ class DropdownInput(Input):
         return """
             <select class="{classes}" id="{id}" name="{id}" {disabled}>{options}</select>
         """.format(
-            classes=self.input_classes(errors),
-            id=self.id,
+            classes=html.escape(self.input_classes(errors), quote=True),
+            id=html.escape(str(self.id), quote=True),
             options=self.render_options(value),
             disabled="disabled" if self.disabled else "",
         )
@@ -321,8 +330,8 @@ class DropdownInput(Input):
             """
                 <option value="{value}" {selected}>{text}</option>
             """.format(
-                text=o.text,
-                value=o.value,
+                text=html.escape(str(o.text)),
+                value=html.escape(str(o.value), quote=True),
                 selected="selected" if o.value == value else "",
             )
             for o in self.options
@@ -343,6 +352,7 @@ class ModesInput(DropdownInput):
 
 class AgcInput(DropdownInput):
     def __init__(self, id, label, infotext=None):
+        from pycsdr.types import AgcProfile
         options = [Option(p.value, p.value) for p in AgcProfile]
         super().__init__(id, label, options, infotext=infotext)
 
@@ -390,9 +400,9 @@ class ExponentialInput(Input):
                 </select>
             </div>
         """.format(
-            id=self.id,
+            id=html.escape(str(self.id), quote=True),
             disabled="disabled" if self.disabled else "",
-            unit=self.unit,
+            unit=html.escape(str(self.unit)),
         )
 
         return """

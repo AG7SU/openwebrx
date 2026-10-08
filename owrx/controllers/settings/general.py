@@ -128,7 +128,7 @@ class GeneralSettingsController(SettingsFormController):
                 ),
                 CheckboxInput(
                     "allow_remote_config",
-                    "Allow settings access outside local network",
+                    "Allow settings access from any network",
                 ),
                 CheckboxInput(
                     "allow_chat",

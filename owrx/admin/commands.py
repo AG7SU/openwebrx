@@ -60,6 +60,8 @@ class DeleteUser(UserCommand):
         print("Deleting user {username}...".format(username=username))
         userList = UserList()
         userList.deleteUser(username)
+        from owrx.controllers.session import SessionStorage
+        SessionStorage.getSharedInstance().revokeUserSessions(username)
 
 
 class ResetPassword(UserCommand):
@@ -71,6 +73,8 @@ class ResetPassword(UserCommand):
         # this is a change to an object in the list, not the list itself
         # in this case, store() is explicit
         userList.store()
+        from owrx.controllers.session import SessionStorage
+        SessionStorage.getSharedInstance().revokeUserSessions(username)
 
 
 class DisableUser(UserCommand):
@@ -79,6 +83,8 @@ class DisableUser(UserCommand):
         userList = UserList()
         userList[username].disable()
         userList.store()
+        from owrx.controllers.session import SessionStorage
+        SessionStorage.getSharedInstance().revokeUserSessions(username)
 
 
 class EnableUser(UserCommand):

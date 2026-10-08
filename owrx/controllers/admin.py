@@ -1,5 +1,6 @@
 from owrx.controllers.session import SessionStorage
 from owrx.users import UserList
+from owrx.config import Config
 from urllib import parse
 from http.cookies import SimpleCookie
 
@@ -23,6 +24,10 @@ class Authentication(object):
         user = None
         try:
             user = userList[session["user"]]
+            if (session.get("credential_version") != user.credential_version
+                    or session.get("account_id") != user.account_id):
+                storage.endSession(session_id)
+                return None
             storage.prolongSession(session_id)
         except KeyError:
             pass
@@ -36,7 +41,13 @@ class AuthorizationMixin(object):
         super().__init__(handler, request, options)
 
     def isAuthorized(self):
-        return self.user is not None and self.user.is_enabled() and not self.user.must_change_password
+        remote_admin_allowed = self.request.local or Config.get()["allow_remote_config"]
+        return (
+            remote_admin_allowed
+            and self.user is not None
+            and self.user.is_enabled()
+            and not self.user.must_change_password
+        )
 
     def handle_request(self):
         if self.isAuthorized():

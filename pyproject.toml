@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools==84.0.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "OpenWebRX"
+dynamic = ["version"]
+description = "Multi-user web software-defined radio receiver"
+readme = "README.md"
+requires-python = ">=3.11"
+license = "AGPL-3.0-only"
+authors = [{name = "Marat Fayzullin", email = "luarvique@gmail.com"}]
+maintainers = [{name = "Marat Fayzullin", email = "luarvique@gmail.com"}]
+urls = {Homepage = "https://www.openwebrx.de/"}
+scripts = {openwebrx = "owrx.__main__:main"}
+dependencies = ["packaging>=23.0"]
+
+[tool.setuptools.dynamic]
+version = {attr = "owrx.version._versionstring"}
+
+[tool.setuptools.packages.find]
+include = ["owrx*", "csdr*", "htdocs*"]
+
+[tool.setuptools.package-data]
+htdocs = ["**/*"]
+
+[tool.setuptools.exclude-package-data]
+"*" = ["**/__pycache__/*", "**/*.pyc", "**/*.pyo"]

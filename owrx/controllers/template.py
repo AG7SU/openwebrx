@@ -1,8 +1,11 @@
 from owrx.controllers import Controller
 from owrx.details import ReceiverDetails
 from owrx.config import Config
+from owrx.security import sanitize_html
 from string import Template
 import importlib.resources
+import html
+from urllib.parse import urlsplit
 
 
 class TemplateController(Controller):
@@ -26,13 +29,66 @@ class WebpageController(TemplateController):
         return "../" * levels
 
     def header_variables(self):
-        variables = { "document_root": self.get_document_root(), "map_type": "" }
-        variables.update(ReceiverDetails().__dict__())
+        variables = {
+            "document_root": self.get_document_root(),
+            "map_type": "",
+            "csrf_token": self.get_csrf_token() or "",
+            "csp_nonce": html.escape(self.csp_nonce, quote=True),
+        }
+        details = ReceiverDetails().__dict__()
+        for key, value in details.items():
+            if key == "photo_desc":
+                details[key] = sanitize_html(value)
+                continue
+            if key == "receiver_help":
+                value = self._safe_help_url(value)
+            elif key == "usage_policy_url":
+                value = self._safe_policy_url(value)
+            elif key == "session_timeout":
+                try:
+                    value = max(0, int(value))
+                except (TypeError, ValueError):
+                    value = 0
+            else:
+                value = "" if value is None else value
+            details[key] = html.escape(str(value), quote=True)
+        variables.update(details)
         return variables
+
+    @staticmethod
+    def _safe_help_url(value):
+        value = "" if value is None else str(value)
+        if any(ord(char) < 32 or ord(char) == 127 for char in value) or "\\" in value:
+            return "#"
+        try:
+            parsed = urlsplit(value)
+        except ValueError:
+            return "#"
+        if parsed.scheme:
+            return value if parsed.scheme.lower() in ("http", "https") and parsed.netloc else "#"
+        return value if value and not parsed.netloc and not value.startswith("//") else "#"
+
+    @staticmethod
+    def _safe_policy_url(value):
+        value = "policy" if value is None else str(value)
+        if any(ord(char) < 32 or ord(char) == 127 for char in value) or "\\" in value:
+            return "policy"
+        try:
+            parsed = urlsplit(value)
+        except ValueError:
+            return "policy"
+        if parsed.scheme:
+            return value if parsed.scheme.lower() in ("http", "https") and parsed.netloc else "policy"
+        return value if not parsed.netloc and not value.startswith("//") else "policy"
 
     def template_variables(self):
         header = self.render_template("include/header.include.html", **self.header_variables())
-        return {"header": header, "document_root": self.get_document_root()}
+        return {
+            "header": header,
+            "document_root": self.get_document_root(),
+            "csrf_token": self.get_csrf_token() or "",
+            "csp_nonce": html.escape(self.csp_nonce, quote=True),
+        }
 
 
 class IndexController(WebpageController):
@@ -43,7 +99,9 @@ class IndexController(WebpageController):
 class MapController(WebpageController):
     def indexAction(self):
         # TODO check if we have a google maps api key first?
-        self.serve_template("map-{}.html".format(self.map_type()), **self.template_variables())
+        map_type = self.map_type()
+        self.csp_unsafe_eval = map_type == "google"
+        self.serve_template("map-{}.html".format(map_type), **self.template_variables())
 
     def header_variables(self):
         # Invert map type for the "map" toolbar icon
@@ -69,4 +127,3 @@ class MapController(WebpageController):
 class PolicyController(WebpageController):
     def indexAction(self):
         self.serve_template("policy.html", **self.template_variables())
-

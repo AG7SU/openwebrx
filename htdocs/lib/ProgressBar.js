@@ -22,7 +22,7 @@ ProgressBar.prototype.setValue = function(val) {
 };
 
 ProgressBar.prototype.setText = function(text) {
-    this.$innerText.html(text);
+    this.$innerText.text(text);
 };
 
 ProgressBar.prototype.setOver = function(over) {

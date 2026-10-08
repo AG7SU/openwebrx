@@ -239,7 +239,7 @@ AudioEngine.prototype.setupResampling = function() { //both at the server and th
     if (!audio_params) {
         this.resamplingFactor = 0;
         this.outputRate = 0;
-        divlog('Your audio card sampling rate (' + targetRate + ') is not supported.<br />Please change your operating system default settings in order to fix this.', 1);
+        divlog('Your audio card sampling rate (' + targetRate + ') is not supported. Please change your operating system default settings in order to fix this.', 1);
     } else {
         this.resamplingFactor = audio_params.resamplingFactor;
         this.outputRate = audio_params.outputRate;
@@ -249,7 +249,7 @@ AudioEngine.prototype.setupResampling = function() { //both at the server and th
     if (!hd_audio_params) {
         this.hdResamplingFactor = 0;
         this.hdOutputRate = 0;
-        divlog('Your audio card sampling rate (' + targetRate + ') is not supported for HD audio<br />Please change your operating system default settings in order to fix this.', 1);
+        divlog('Your audio card sampling rate (' + targetRate + ') is not supported for HD audio. Please change your operating system default settings in order to fix this.', 1);
     } else {
         this.hdResamplingFactor = hd_audio_params.resamplingFactor;
         this.hdOutputRate = hd_audio_params.outputRate;

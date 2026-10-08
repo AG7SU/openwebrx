@@ -62,30 +62,27 @@ DemodulatorPanel.prototype.render = function() {
     var html = []
 
     var buttons = normalModes.map(function(m){
-        return $(
-            '<div ' +
-                'class="openwebrx-button openwebrx-demodulator-button" ' +
-                'data-modulation="' + m.modulation + '" ' +
-                'id="openwebrx-button-' + m.modulation + '" r' +
-            '>' + m.name + '</div>'
-        );
+        return $('<div class="openwebrx-button openwebrx-demodulator-button"></div>')
+            .attr('data-modulation', m.modulation)
+            .attr('id', 'openwebrx-button-' + m.modulation)
+            .text(m.name);
     });
 
     var $modegrid = $('<div class="openwebrx-modes-grid"></div>');
     $modegrid.append.apply($modegrid, buttons);
     html.push($modegrid);
 
-    html.push($(
+    var $digitalModes = $(
         '<div class="openwebrx-panel-line openwebrx-panel-flex-line">' +
             '<div class="openwebrx-button openwebrx-demodulator-button openwebrx-button-dig">DIG</div>' +
-            '<select class="openwebrx-secondary-demod-listbox">' +
-                '<option value="none"></option>' +
-                digiModes.map(function(m){
-                    return '<option value="' + m.modulation + '">' + m.name + '</option>';
-                }).join('') +
-            '</select>' +
+            '<select class="openwebrx-secondary-demod-listbox"><option value="none"></option></select>' +
         '</div>'
-    ));
+    );
+    var digitalOptions = digiModes.map(function(m) {
+        return $('<option>').val(m.modulation).text(m.name)[0];
+    });
+    $digitalModes.find('select').append(digitalOptions);
+    html.push($digitalModes);
 
     this.el.find(".openwebrx-modes").html(html);
 };

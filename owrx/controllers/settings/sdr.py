@@ -209,7 +209,10 @@ class SdrFormControllerWithModal(SdrFormController, metaclass=ABCMeta):
                         </div>
                         <div class="modal-footer">
                             <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
-                            <a type="button" class="btn btn-danger" href="{confirm_url}">Delete</a>
+                            <form method="POST" action="{confirm_url}" class="d-inline">
+                                <input type="hidden" name="csrf_token" value="{csrf_token}">
+                                <button type="submit" class="btn btn-danger">Delete</button>
+                            </form>
                         </div>
                     </div>
                 </div>
@@ -217,6 +220,7 @@ class SdrFormControllerWithModal(SdrFormController, metaclass=ABCMeta):
         """.format(
             object_type=self.getModalObjectType(),
             confirm_url=self.getModalConfirmUrl(),
+            csrf_token=self.get_csrf_token() or "",
         )
 
     @abstractmethod
@@ -498,4 +502,3 @@ class NewProfileController(SdrProfileController):
     def render_remove_button(self):
         # new profile doesn't have a remove button
         return ""
-

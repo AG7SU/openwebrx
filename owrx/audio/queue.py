@@ -4,12 +4,24 @@ from owrx.metrics import Metrics, CounterMetric, DirectMetric
 from queue import Queue, Full, Empty
 import subprocess
 import os
+import signal
 import threading
 
 import logging
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
+
+DECODER_TIMEOUT_SECONDS = 10
+DECODER_MAX_OUTPUT_BYTES = 8 * 1024 * 1024
+DECODER_MAX_LINE_BYTES = 256 * 1024
+
+
+def _kill_decoder_group(process):
+    try:
+        os.killpg(process.pid, signal.SIGKILL)
+    except OSError:
+        pass
 
 
 class QueueJobResult:
@@ -34,27 +46,62 @@ class QueueJob(object):
             stdout=subprocess.PIPE,
             cwd=tmp_dir,
             close_fds=True,
-            )
-        lines = None
-        try:
-            lines = [l for l in decoder.stdout]
-        except OSError:
-            decoder.stdout.flush()
-            # TODO uncouple parsing from the output so that decodes can still go to the map and the spotters
-            logger.debug("output has gone away while decoding job.")
+            start_new_session=True,
+            bufsize=0,
+        )
+        timed_out = threading.Event()
 
-        # keep this out of the try/except
-        if lines is not None:
-            self.writer.sendResult(QueueJobResult(self.profile, self.frequency, lines))
+        def terminate_on_timeout():
+            timed_out.set()
+            _kill_decoder_group(decoder)
 
+        timeout = threading.Timer(DECODER_TIMEOUT_SECONDS, terminate_on_timeout)
+        timeout.daemon = True
+        timeout.start()
+
+        lines = []
+        pending = bytearray()
+        output_bytes = 0
         try:
-            rc = decoder.wait(timeout=10)
+            while True:
+                chunk = decoder.stdout.read(65536)
+                if not chunk:
+                    break
+                output_bytes += len(chunk)
+                if output_bytes > DECODER_MAX_OUTPUT_BYTES:
+                    raise RuntimeError("decoder output exceeded limit")
+                pending.extend(chunk)
+                while True:
+                    newline = pending.find(b"\n")
+                    if newline < 0:
+                        break
+                    if newline + 1 > DECODER_MAX_LINE_BYTES:
+                        raise RuntimeError("decoder output line exceeded limit")
+                    lines.append(bytes(pending[:newline + 1]))
+                    del pending[:newline + 1]
+                if len(pending) > DECODER_MAX_LINE_BYTES:
+                    raise RuntimeError("decoder output line exceeded limit")
+
+            rc = decoder.wait()
+            timeout.cancel()
+            if timed_out.is_set():
+                raise subprocess.TimeoutExpired(decoder.args, DECODER_TIMEOUT_SECONDS)
             if rc != 0:
                 raise RuntimeError("decoder return code: {0}".format(rc))
-        except subprocess.TimeoutExpired:
-            logger.warning("subprocess (pid=%i}) did not terminate correctly; sending kill signal.", decoder.pid)
-            decoder.kill()
+            if pending:
+                lines.append(bytes(pending))
+            self.writer.sendResult(QueueJobResult(self.profile, self.frequency, lines))
+        except Exception:
+            _kill_decoder_group(decoder)
+            try:
+                decoder.wait(timeout=1)
+            except subprocess.TimeoutExpired:
+                pass
             raise
+        finally:
+            timeout.cancel()
+            if decoder.stdout is not None:
+                decoder.stdout.close()
 
     def unlink(self):
         try:

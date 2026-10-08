@@ -6,6 +6,7 @@ from owrx.web.receivers import Receivers
 from owrx.web.repeaters import Repeaters
 from owrx.web.eibi import EIBI
 from datetime import datetime
+import html
 
 import json
 import time
@@ -117,5 +118,9 @@ class ServiceController(AuthorizationMixin, WebpageController):
         freq = re.sub(r"\.?0+$", "", "{0}".format(freq))
         # Format row
         return "<tr><td>{0}</td><td>{1} {2}</td><td>{3}{4}</td></tr>".format(
-            c["mode"].upper(), c["sdr"], c["band"], freq, unit
+            html.escape(str(c["mode"]).upper()),
+            html.escape(str(c["sdr"])),
+            html.escape(str(c["band"])),
+            html.escape(str(freq)),
+            unit,
         )

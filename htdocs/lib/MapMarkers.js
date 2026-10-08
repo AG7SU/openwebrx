@@ -104,12 +104,11 @@ MarkerManager.prototype.addType = function(type) {
     if($content)
     {
         // Add visual list item for the type
-        $content.append(
-            '<li class="square' + (enabled? '':' disabled') +
-            '" data-selector="' + type + '">' +
-            '<span class="feature" style="color:' + color + ';">' +
-            symbol + '</span>' + type + '</li>'
-        );
+        var $item = $('<li class="square"></li>')
+            .toggleClass('disabled', !enabled)
+            .attr('data-selector', type);
+        var $symbol = $('<span class="feature"></span>').css('color', color).html(symbol);
+        $content.append($item.append($symbol, document.createTextNode(type)));
     }
 };
 
@@ -226,7 +225,15 @@ FeatureMarker.prototype.draw = function() {
     if (!div) return;
 
     div.style.color = this.color? this.color : '#000000';
-    div.innerHTML   = this.symbol? this.symbol : '&#9679;';
+    var symbol = this.symbol? String(this.symbol) : '&#9679;';
+    // Feature symbols may come from map updates. Only parse the entity forms
+    // used for glyphs; render every other value as text to prevent markup injection.
+    if (/^&#(?:x[0-9a-f]{1,6}|[0-9]{1,7});$/i.test(symbol)
+        || /^&(tridot|bowtie|apacir);$/.test(symbol)) {
+        div.innerHTML = symbol;
+    } else {
+        div.textContent = symbol;
+    }
 
     if (this.place) this.place();
 };
@@ -258,7 +265,7 @@ FeatureMarker.prototype.getSize = function() {
 };
 
 FeatureMarker.prototype.getInfoHTML = function(name, receiverMarker = null) {
-    var nameString    = this.url? Utils.linkify(name, this.url) : name;
+    var nameString    = this.url? Utils.linkify(name, this.url) : Utils.htmlEscape(name);
     var commentString = this.comment? '<div align="center">' + Utils.htmlEscape(this.comment) + '</div>' : '';
     var detailsString = '';
     var scheduleString = '';
@@ -271,7 +278,14 @@ FeatureMarker.prototype.getInfoHTML = function(name, receiverMarker = null) {
 
     // If there is a logo, add it in
     if (this.logourl) {
-        nameString = '<p><img height=80 src="' + this.logourl + '"></p>' + nameString;
+        try {
+            var logoUrl = new URL(this.logourl, document.baseURI);
+            if (['http:', 'https:'].includes(logoUrl.protocol)) {
+                nameString = '<p><img height="80" src="' + Utils.htmlEscape(logoUrl.href) + '"></p>' + nameString;
+            }
+        } catch (e) {
+            // Ignore invalid logo URLs.
+        }
     }
 
     if (this.device) {
@@ -291,13 +305,13 @@ FeatureMarker.prototype.getInfoHTML = function(name, receiverMarker = null) {
     if (this.freq) {
         detailsString += Utils.makeListItem('Frequency', Utils.linkifyFreq(
             this.freq, this.mmode? this.mmode : 'nfm'
-        ));
+        ), true);
     }
 
     // If there is band information...
     if (this.freql || this.freqh) {
         detailsString += Utils.makeListItem('Band',
-            Utils.printFreq(this.freql) + '&nbsp;&hellip;&nbsp;' + Utils.printFreq(this.freqh)
+            Utils.printFreq(this.freql) + ' … ' + Utils.printFreq(this.freqh)
         );
     }
 
@@ -312,7 +326,7 @@ FeatureMarker.prototype.getInfoHTML = function(name, receiverMarker = null) {
             if (band.antenna != antenna) antenna = 'Multiple';
             // Show frequency ranges by band
             detailsString += Utils.makeListItem('Band',
-                Utils.printFreq(band.freql) + '&nbsp;&hellip;&nbsp;' + Utils.printFreq(band.freqh)
+                Utils.printFreq(band.freql) + ' … ' + Utils.printFreq(band.freqh)
             );
         }
 
@@ -331,8 +345,8 @@ FeatureMarker.prototype.getInfoHTML = function(name, receiverMarker = null) {
     }
 
     if (!this.comment && this.status && this.updated) {
-        commentString = '<div align="center">' + this.status
-            + ', last updated on ' + this.updated + '</div>';
+        commentString = '<div align="center">' + Utils.htmlEscape(this.status)
+            + ', last updated on ' + Utils.htmlEscape(this.updated) + '</div>';
     } else {
         if (this.status) {
             detailsString += Utils.makeListItem('Status', this.status);
@@ -353,14 +367,14 @@ FeatureMarker.prototype.getInfoHTML = function(name, receiverMarker = null) {
         var odd = false;
         var list = this.schedule.map(function(x) {
             var hint = x.tgt? 'Transmitting to ' + x.tgt : '';
-            if (hint && x.lang) hint += ' (' + x.lang.replace(/ *[:(].*/, '') + ')';
+            if (hint && x.lang) hint += ' (' + String(x.lang).replace(/ *[:(].*/, '') + ')';
 
             var row = '<tr '
-                + (hint? 'title="' + hint + '" ' : '')
+                + (hint? 'title="' + Utils.htmlEscape(hint) + '" ' : '')
                 + 'style="background-color:' + (odd? '#E0FFE0':'#FFFFFF')
-                + ';"><td>' + ('0000' + x.time1).slice(-4)
-                + '&#8209;' + ('0000' + x.time2).slice(-4)
-                + '</td><td width="100%">' + x.name + '</td>'
+                + ';"><td>' + Utils.htmlEscape(('0000' + x.time1).slice(-4))
+                + '‑' + Utils.htmlEscape(('0000' + x.time2).slice(-4))
+                + '</td><td width="100%">' + Utils.htmlEscape(x.name) + '</td>'
                 + '<td style="text-align:right;">' + Utils.linkifyFreq(x.freq, x.mode? x.mode : 'am') + '</td>'
                 + '</tr>';
 
@@ -522,7 +536,7 @@ AprsMarker.prototype.getSize = function() {
 };
 
 AprsMarker.prototype.getInfoHTML = function(name, receiverMarker = null) {
-    var timeString = moment(this.lastseen).fromNow();
+    var timeString = Utils.htmlEscape(Utils.relativeTime(this.lastseen));
     var commentString = '';
     var weatherString = '';
     var detailsString = '';
@@ -539,7 +553,7 @@ AprsMarker.prototype.getInfoHTML = function(name, receiverMarker = null) {
         weatherString += '<div>' + Utils.makeListTitle('Weather');
 
         if (this.weather.temperature) {
-            weatherString += Utils.makeListItem('Temperature', this.weather.temperature.toFixed(1) + '&deg;C');
+            weatherString += Utils.makeListItem('Temperature', this.weather.temperature.toFixed(1) + '°C');
         }
 
         if (this.weather.humidity) {
@@ -624,26 +638,26 @@ AprsMarker.prototype.getInfoHTML = function(name, receiverMarker = null) {
 
     if (this.altitude) {
         var vs = '';
-        if (this.vspeed > 0) vs = '&uarr;' + this.vspeed.toFixed(1) + ' m/s ';
-        if (this.vspeed < 0) vs = '&darr;' + (-this.vspeed).toFixed(1) + ' m/s ';
+        if (this.vspeed > 0) vs = '↑' + this.vspeed.toFixed(1) + ' m/s ';
+        if (this.vspeed < 0) vs = '↓' + (-this.vspeed).toFixed(1) + ' m/s ';
         detailsString += Utils.makeListItem('Altitude', vs + this.altitude.toFixed(0) + ' m');
     }
 
     if (this.country) {
-        detailsString += Utils.makeListItem('Country', Lookup.cdata2country([this.ccode, this.country]));
+        detailsString += Utils.makeListItem('Country', Lookup.cdata2country([this.ccode, this.country]), true);
     } else if (this.mode === 'AIS') {
-        detailsString += Utils.makeListItem('Country', Lookup.mmsi2country(name));
+        detailsString += Utils.makeListItem('Country', Lookup.mmsi2country(name), true);
     }
 
     // Meshtastic data
     if (this.longName) {
-        detailsString += Utils.makeListItem('Name', Utils.htmlEscape(this.longName));
+        detailsString += Utils.makeListItem('Name', this.longName);
     }
     if (this.nickName) {
-        detailsString += Utils.makeListItem('Nickname', Utils.htmlEscape(this.nickName));
+        detailsString += Utils.makeListItem('Nickname', this.nickName);
     }
     if (this.role) {
-        detailsString += Utils.makeListItem('Role', Utils.htmlEscape(this.role));
+        detailsString += Utils.makeListItem('Role', this.role);
     }
     if (this.uptime) {
         detailsString += Utils.makeListItem('Uptime', this.uptime + ' s');
@@ -679,7 +693,7 @@ AprsMarker.prototype.getInfoHTML = function(name, receiverMarker = null) {
     // Combine everything into info box contents
     return '<h3>' + title + distance + '</h3>'
         + '<div align="center">' + timeString + ' using '
-        + this.mode + ( this.band ? ' on ' + this.band : '' ) + '</div>'
+        + Utils.htmlEscape(this.mode) + ( this.band ? ' on ' + Utils.htmlEscape(this.band) : '' ) + '</div>'
         + commentString + weatherString + detailsString
         + messageString + hopsString;
 };
@@ -803,7 +817,7 @@ AircraftMarker.prototype.getSize = function() {
 };
 
 AircraftMarker.prototype.getInfoHTML = function(name, receiverMarker = null) {
-    var timeString = moment(this.lastseen).fromNow();
+    var timeString = Utils.htmlEscape(Utils.relativeTime(this.lastseen));
     var commentString = '';
     var detailsString = '';
     var messageString = '';
@@ -824,15 +838,15 @@ AircraftMarker.prototype.getInfoHTML = function(name, receiverMarker = null) {
     }
 
     if (this.icao) {
-        detailsString += Utils.makeListItem('ICAO', Utils.linkifyIcao(this.icao));
+        detailsString += Utils.makeListItem('ICAO', Utils.linkifyIcao(this.icao), true);
     }
 
     if (this.aircraft) {
-        detailsString += Utils.makeListItem('Aircraft', Utils.linkifyFlight(this.aircraft));
+        detailsString += Utils.makeListItem('Aircraft', Utils.linkifyFlight(this.aircraft), true);
     }
 
     if (this.country) {
-        detailsString += Utils.makeListItem('Country', Lookup.cdata2country([this.ccode, this.country]));
+        detailsString += Utils.makeListItem('Country', Lookup.cdata2country([this.ccode, this.country]), true);
     }
 
     if (this.squawk) {
@@ -865,13 +879,13 @@ AircraftMarker.prototype.getInfoHTML = function(name, receiverMarker = null) {
     // Combine altitude and vertical speed
     if (this.altitude) {
         var alt = this.altitude.toFixed(0) + ' ft';
-        if (this.vspeed > 0) alt = '&uarr;' + this.vspeed + ' ft/m ' + alt;
-        else if (this.vspeed < 0) alt = '&darr;' + (-this.vspeed) + ' ft/m ' + alt;
+        if (this.vspeed > 0) alt = '↑' + this.vspeed + ' ft/m ' + alt;
+        else if (this.vspeed < 0) alt = '↓' + (-this.vspeed) + ' ft/m ' + alt;
         detailsString += Utils.makeListItem('Altitude', alt);
     }
 
     if (this.temperature) {
-        detailsString += Utils.makeListItem('Temperature', this.temperature.toFixed(1) + '&deg;C');
+        detailsString += Utils.makeListItem('Temperature', this.temperature.toFixed(1) + '°C');
     }
 
     if (this.wind) {
@@ -892,7 +906,7 @@ AircraftMarker.prototype.getInfoHTML = function(name, receiverMarker = null) {
         for (var i = 0 ; i < this.route.length ; i++) {
             if (this.route[i].name) {
                 route +=
-                  (route.length? '&nbsp;&#9656;&nbsp;':'')
+                  (route.length? ' ▸ ':'')
                 + (this.route[i].name || Utils.latLon(this.route[i]) || '???');
             }
         }
@@ -912,15 +926,19 @@ AircraftMarker.prototype.getInfoHTML = function(name, receiverMarker = null) {
     }
 
     // Linkify title based on what it is (flight, aircraft, ICAO code)
+    var nameIsHtml = false;
     if (this.flight && this.flight.match(/^[A-Z]{3}[0-9]+[A-Z]*$/)) {
         name = Utils.linkifyFlight(this.flight);
+        nameIsHtml = true;
     } else if(this.aircraft) {
         name = Utils.linkifyFlight(this.aircraft);
+        nameIsHtml = true;
     } else if(name.match(/^[0-9A-F]{6}$/)) {
         name = Utils.linkifyIcao(name);
+        nameIsHtml = true;
     }
 
-    return '<h3>' + name + distance + '</h3>'
-        + '<div align="center">' + timeString + ' using ' + this.mode + '</div>'
+    return '<h3>' + (nameIsHtml? name : Utils.htmlEscape(name)) + distance + '</h3>'
+        + '<div align="center">' + timeString + ' using ' + Utils.htmlEscape(this.mode) + '</div>'
         + commentString + detailsString + messageString;
 };

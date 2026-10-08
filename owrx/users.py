@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 from owrx.config.core import CoreConfig
 from datetime import datetime, timezone
+from uuid import uuid4
 import json
 import hashlib
 import hmac
@@ -10,6 +11,22 @@ import stat
 import logging
 
 logger = logging.getLogger(__name__)
+
+# Bound password input before doing expensive password hashing. This is a byte
+# limit so multibyte UTF-8 passwords cannot bypass the CPU/input-size bound.
+MAX_PASSWORD_BYTES = 1024
+PBKDF2_ALGORITHM = "sha256"
+PBKDF2_ITERATIONS = 100000
+PBKDF2_MAX_ITERATIONS = 10000000
+
+
+def _password_bytes(value: str) -> bytes:
+    if not isinstance(value, str):
+        raise PasswordException("password must be text")
+    encoded = value.encode("utf-8")
+    if not encoded or len(encoded) > MAX_PASSWORD_BYTES:
+        raise PasswordException("password must be between 1 and {0} UTF-8 bytes".format(MAX_PASSWORD_BYTES))
+    return encoded
 
 
 class PasswordException(Exception):
@@ -46,7 +63,11 @@ class CleartextPassword(Password):
             raise ValueError("invalid argument to ClearTextPassword()")
 
     def is_valid(self, inp: str) -> bool:
-        return hmac.compare_digest(self._value.encode(), inp.encode())
+        try:
+            candidate = _password_bytes(inp)
+        except (PasswordException, UnicodeError):
+            return False
+        return hmac.compare_digest(self._value.encode(), candidate)
 
     def toJson(self) -> dict:
         return {
@@ -56,17 +77,18 @@ class CleartextPassword(Password):
 
 
 class HashedPassword(Password):
-    def __init__(self, pwinfo, algorithm="sha256"):
-        self.iterations = 100000
+    def __init__(self, pwinfo, algorithm=PBKDF2_ALGORITHM):
+        self.iterations = PBKDF2_ITERATIONS
         if isinstance(pwinfo, str):
             self._createFromString(pwinfo, algorithm)
         else:
             self._loadFromDict(pwinfo)
 
     def _createFromString(self, pw: str, algorithm: str):
+        password = _password_bytes(pw)
         self._algorithm = algorithm
         self._salt = os.urandom(32)
-        dk = hashlib.pbkdf2_hmac(self._algorithm, pw.encode(), self._salt, self.iterations)
+        dk = hashlib.pbkdf2_hmac(self._algorithm, password, self._salt, self.iterations)
         self._hash = dk.hex()
         pass
 
@@ -74,10 +96,25 @@ class HashedPassword(Password):
         self._hash = d["value"]
         self._algorithm = d["algorithm"]
         self._salt = bytes.fromhex(d["salt"])
+        # Existing user files predate the iterations field and used 100,000.
+        # Bound persisted work so a damaged/tampered record cannot request
+        # unbounded CPU during login.
+        self.iterations = d.get("iterations", PBKDF2_ITERATIONS)
+        if (not isinstance(self.iterations, int) or isinstance(self.iterations, bool)
+                or not 1 <= self.iterations <= PBKDF2_MAX_ITERATIONS):
+            raise PasswordException("invalid password hash iteration count")
+
+    def needs_rehash(self) -> bool:
+        return (self._algorithm != PBKDF2_ALGORITHM
+                or self.iterations < PBKDF2_ITERATIONS)
         pass
 
     def is_valid(self, inp: str) -> bool:
-        dk = hashlib.pbkdf2_hmac(self._algorithm, inp.encode(), self._salt, self.iterations)
+        try:
+            password = _password_bytes(inp)
+        except (PasswordException, UnicodeError):
+            return False
+        dk = hashlib.pbkdf2_hmac(self._algorithm, password, self._salt, self.iterations)
         return hmac.compare_digest(dk.hex(), self._hash)
 
     def toJson(self) -> dict:
@@ -86,6 +123,7 @@ class HashedPassword(Password):
             "value": self._hash,
             "algorithm": self._algorithm,
             "salt": self._salt.hex(),
+            "iterations": self.iterations,
         }
 
 
@@ -93,17 +131,22 @@ DefaultPasswordClass = HashedPassword
 
 
 class User(object):
-    def __init__(self, name: str, enabled: bool, password: Password, must_change_password: bool = False):
+    def __init__(self, name: str, enabled: bool, password: Password, must_change_password: bool = False,
+                 credential_version: int = 0, account_id: str = None):
         self.name = name
         self.enabled = enabled
         self.password = password
         self.must_change_password = must_change_password
+        self.credential_version = credential_version
+        self.account_id = account_id or uuid4().hex
 
     def toJson(self):
         return {
             "user": self.name,
             "enabled": self.enabled,
             "must_change_password": self.must_change_password,
+            "credential_version": self.credential_version,
+            "account_id": self.account_id,
             "password": self.password.toJson()
         }
 
@@ -111,10 +154,15 @@ class User(object):
     def fromJson(d):
         if "user" in d and "password" in d and "enabled" in d:
             mcp = d["must_change_password"] if "must_change_password" in d else False
-            return User(d["user"], d["enabled"], Password.from_dict(d["password"]), mcp)
+            return User(
+                d["user"], d["enabled"], Password.from_dict(d["password"]), mcp,
+                d.get("credential_version", 0),
+                d.get("account_id") or hashlib.sha256(("owrx-account:" + d["user"]).encode()).hexdigest(),
+            )
 
     def setPassword(self, password: Password, must_change_password: bool = None):
         self.password = password
+        self.credential_version += 1
         if must_change_password is not None:
             self.must_change_password = must_change_password
 
@@ -125,7 +173,9 @@ class User(object):
         self.enabled = True
 
     def disable(self):
-        self.enabled = False
+        if self.enabled:
+            self.credential_version += 1
+            self.enabled = False
 
 
 class UserList(object):

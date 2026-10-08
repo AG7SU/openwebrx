@@ -148,15 +148,17 @@ LocatorManager.prototype.updateLegend = function() {
     var keys = this.getSortedKeys(colors);
     var list = $.map(keys, function(key) {
         var value = colors[key]? colors[key] : '#000000';
-        return '<li class="square' + (colors[key]? '' : ' disabled')
-            + '" data-selector="' + key
-            + '"><span class="illustration" style="background-color:'
-            + chroma(value).alpha(LocatorManager.fillOpacity) + ';border-color:'
-            + chroma(value).alpha(LocatorManager.strokeOpacity) + ';"></span>'
-            + key + '</li>';
+        var $item = $('<li class="square"></li>')
+            .toggleClass('disabled', !colors[key])
+            .attr('data-selector', key);
+        var $illustration = $('<span class="illustration"></span>').css({
+            'background-color': chroma(value).alpha(LocatorManager.fillOpacity).css(),
+            'border-color': chroma(value).alpha(LocatorManager.strokeOpacity).css()
+        });
+        return $item.append($illustration, document.createTextNode(key))[0];
     });
 
-    $(".openwebrx-map-legend .content").html('<ul>' + list.join('') + '</ul>');
+    $(".openwebrx-map-legend .content").empty().append($('<ul></ul>').append(list));
 }
 
 LocatorManager.prototype.setColorMode = function(newColorMode) {
@@ -302,9 +304,9 @@ Locator.prototype.getInfoHTML = function(locator, pos, receiverMarker = null) {
 
         var row = '<tr style="background-color:' + (odd? '#E0FFE0':'#FFFFFF') + ';">'
             + '<td>' + Utils.linkifyCallsign(x.callsign) + '</td>'
-            + '<td style="color:' + tc + '";>' + moment(x.lastseen).fromNow() + '</td>'
-            + '<td style="color:' + tc + ';background-color:' + mc + ';">' + x.mode + '</td>'
-            + '<td style="background-color:' + bc + ';">' + x.band + '</td>'
+            + '<td style="color:' + tc + '";>' + Utils.htmlEscape(Utils.relativeTime(x.lastseen)) + '</td>'
+            + '<td style="color:' + tc + ';background-color:' + mc + ';">' + Utils.htmlEscape(x.mode) + '</td>'
+            + '<td style="background-color:' + bc + ';">' + Utils.htmlEscape(x.band) + '</td>'
             + '</tr>';
 
         odd = !odd;
@@ -315,10 +317,10 @@ Locator.prototype.getInfoHTML = function(locator, pos, receiverMarker = null) {
         " at " + Utils.distanceKm(receiverMarker.position, pos) + " km" : "";
 
     var latest = inLocator[0];
-    var lastReport = moment(latest.lastseen).fromNow() + ' using '
-        + latest.mode + ( latest.band ? ' on ' + latest.band : '' );
+    var lastReport = Utils.htmlEscape(Utils.relativeTime(latest.lastseen)) + ' using '
+        + Utils.htmlEscape(latest.mode) + ( latest.band ? ' on ' + Utils.htmlEscape(latest.band) : '' );
 
-    return '<h3>Locator ' + locator + distance + '</h3>'
+    return '<h3>Locator ' + Utils.htmlEscape(locator) + distance + '</h3>'
         + '<div align="center">' + lastReport + '</div>'
         + Utils.makeListTitle('Active Callsigns')
         + '<table align="center" class="openwebrx-map-info">' + list + '</table>';

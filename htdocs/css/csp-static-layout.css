@@ -1,0 +1,45 @@
+/* Static layout declarations moved out of HTML for CSP hardening. */
+#openwebrx-map-source { width:100%; }
+#openwebrx-map-colormode { width:100%; }
+#openwebrx-clock-utc { margin: 20px 0 0 0; }
+#openwebrx-bookmarks-container { z-index:2; }
+#openwebrx-scale-container { z-index:1; }
+#openwebrx-panel-sstv-message { display: none; width: 619px; }
+#openwebrx-panel-fax-message { display: none; width: 619px; }
+#openwebrx-panel-digimodes { display: none; width: 92%; max-width: 619px; }
+#openwebrx-panel-wsjt-message { display: none; width: 619px; }
+#openwebrx-panel-js8-message { display:none; width: 619px; }
+#openwebrx-panel-packet-message { display: none; width: 619px; }
+#openwebrx-panel-pocsag-message { display: none; width: 619px; }
+#openwebrx-panel-page-message { display: none; width: 619px; }
+#openwebrx-panel-hfdl-message { display: none; width: 619px; }
+#openwebrx-panel-adsb-message { display: none; width: 619px; }
+#openwebrx-panel-ism-message { display: none; width: 619px; }
+#openwebrx-panel-dsc-message { display: none; width: 619px; }
+#openwebrx-panel-skimmer-message { display: none; width: 619px; }
+#openwebrx-panel-meshtastic-message { display: none; width: 619px; }
+#openwebrx-panel-metadata-m17 { display: none; }
+#openwebrx-panel-metadata-ysf { display: none; }
+#openwebrx-panel-metadata-dstar { display: none; }
+#openwebrx-panel-metadata-nxdn { display: none; }
+#openwebrx-panel-metadata-dmr { display: none; }
+#openwebrx-panel-metadata-p25 { display: none; }
+#openwebrx-panel-metadata-tetra { display: none; }
+#openwebrx-panel-metadata-wfm { display: none; }
+#openwebrx-panel-metadata-hdr { display: none; }
+#openwebrx-panel-metadata-dab { display: none; }
+#openwebrx-panel-metadata-drm { display: none; }
+#openwebrx-panel-log { width: 92%; max-width: 619px; }
+#openwebrx-chat-name { width:15%; margin-right: 0.2rem }
+#openwebrx-chat-message { width:99%; margin-right: 0.2rem }
+#openwebrx-panel-status { width: 100%; max-width: 615px; }
+#openwebrx-bar-battery { display:none; }
+#openwebrx-panel-receiver { width: 259px; }
+#openwebrx-error-overlay { display:none; }
+#openwebrx-autoplay-overlay { display:none; }
+#openwebrx-get-android-app { display:none;position:absolute;bottom:120px;left:120px; }
+#openwebrx-message-bubble { display:none; }
+#openwebrx-dialog-bookmark { display:none; }
+#openwebrx-dialog-search-bookmarks { display:none; }
+#openwebrx-map-colormode { width:100%; }
+#openwebrx-clock-utc { margin: 20px 0 0 0; }

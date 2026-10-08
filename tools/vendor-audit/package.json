@@ -1,0 +1,22 @@
+{
+  "name": "openwebrx-vendor-audit",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "@joergdietrich/leaflet.terminator": "1.1.0",
+    "bootstrap": "4.5.0",
+    "chroma-js": "2.0.3",
+    "jquery": "3.7.1",
+    "lamejs": "1.2.1",
+    "leaflet": "1.9.4",
+    "leaflet-textpath": "1.2.3",
+    "markdown-it": "15.0.2"
+  }
+}

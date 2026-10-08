@@ -1,0 +1,105 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.14"]
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Verify locked pure-Python environment
+        run: |
+          python -m pip install uv==0.8.13
+          uv lock --check
+          uv sync --locked --no-install-project
+
+      - name: Run Python test suite
+        run: uv run --locked --no-sync python -m unittest discover -s test -p 'test*.py'
+
+      - name: Audit locked Python dependencies for known vulnerabilities
+        run: |
+          python -m pip install pip-audit
+          uv export --locked --format requirements.txt --no-emit-project \
+            --output-file /tmp/openwebrx-locked-requirements.txt
+          pip-audit --requirement /tmp/openwebrx-locked-requirements.txt
+
+      - name: Audit versioned vendored browser packages
+        run: npm audit --prefix tools/vendor-audit --audit-level=moderate
+
+      - name: Check frontend JavaScript syntax
+        run: find htdocs -type f -name '*.js' ! -name '*.min.js' -print0 | xargs -0 -n1 node --check
+
+      - name: Run frontend metadata security regression test
+        run: |
+          npm install --prefix /tmp/openwebrx-test-deps --no-save --no-audit --no-fund jsdom@22.1.0
+          NODE_PATH=/tmp/openwebrx-test-deps/node_modules node test/security_metadata.cjs
+          NODE_PATH=/tmp/openwebrx-test-deps/node_modules node test/security_radio_rendering.cjs
+          NODE_PATH=/tmp/openwebrx-test-deps/node_modules node test/receiver_ui_events.cjs
+          NODE_PATH=/tmp/openwebrx-test-deps/node_modules node test/map_vendor_smoke.cjs
+
+      - name: Build PEP 517 wheel
+        run: python -m pip wheel --no-deps --wheel-dir dist .
+
+      - name: Verify wheel metadata and contents
+        run: |
+          python - <<'PY'
+          from email.parser import Parser
+          from pathlib import Path
+          import tomllib
+          from zipfile import ZipFile
+
+          with Path("pyproject.toml").open("rb") as project_file:
+              project = tomllib.load(project_file)
+          assert project["build-system"]["requires"] == ["setuptools==84.0.0"]
+
+          wheels = list(Path("dist").glob("*.whl"))
+          assert len(wheels) == 1, wheels
+          with ZipFile(wheels[0]) as archive:
+              names = archive.namelist()
+              metadata_name = next(name for name in names if name.endswith(".dist-info/METADATA"))
+              metadata = Parser().parsestr(archive.read(metadata_name).decode())
+              assert metadata.get("Requires-Python") == ">=3.11"
+              assert metadata.get_all("Requires-Dist") == ["packaging>=23.0"]
+              assert not any("__pycache__" in name or name.endswith((".pyc", ".pyo")) for name in names)
+              for asset in (
+                  "owrx/http.py",
+                  "owrx/source/rtl_sdr.py",
+                  "csdr/__init__.py",
+                  "htdocs/lib/leaflet.geodesic-2.7.2.min.js",
+                  "htdocs/lib/leaflet-maidenhead-c15c07b.js",
+                  "htdocs/lib/licenses/Leaflet-Geodesic-GPL-3.0.txt",
+                  "htdocs/lib/licenses/Leaflet-Maidenhead-MIT.txt",
+                  "htdocs/lib/licenses/GPL-3.0.txt",
+                  "htdocs/lib/licenses/LGPL-3.0.txt",
+                  "htdocs/lib/licenses/Nite-Overlay-MIT.txt",
+                  "htdocs/lib/markdown-it-15.0.2.min.js",
+                  "htdocs/lib/licenses/Markdown-it-MIT.txt",
+                  "htdocs/lib/leaflet/leaflet.js",
+                  "htdocs/lib/leaflet/leaflet.css",
+                  "htdocs/lib/leaflet/leaflet.textpath-1.2.3.js",
+                  "htdocs/lib/leaflet/L.Terminator-1.1.0.js",
+                  "htdocs/lib/leaflet/images/layers-2x.png",
+                  "htdocs/lib/leaflet/images/layers.png",
+                  "htdocs/lib/leaflet/images/marker-icon-2x.png",
+                  "htdocs/lib/leaflet/images/marker-icon.png",
+                  "htdocs/lib/leaflet/images/marker-shadow.png",
+                  "htdocs/lib/leaflet/licenses/Leaflet-BSD-2-Clause.txt",
+                  "htdocs/lib/leaflet/licenses/Leaflet-TextPath-MIT.txt",
+                  "htdocs/lib/leaflet/licenses/Leaflet-Terminator-MIT.txt",
+              ):
+                  assert asset in names, asset
+          PY

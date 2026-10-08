@@ -51,7 +51,7 @@ Editor.prototype.getValue = function() {
 };
 
 Editor.prototype.getHtml = function() {
-    return this.getValue();
+    return Utils.htmlEscape(this.getValue());
 };
 
 function NameEditor(table) {
@@ -178,14 +178,14 @@ ModulationEditor.prototype = new Editor();
 ModulationEditor.prototype.getInputHtml = function() {
     return '<select class="form-control form-control-sm">' +
         $.map(this.modes, function(mode, name) {
-            return '<option value="' + name + '">' + mode.name + '</option>';
+            return '<option value="' + Utils.htmlEscape(name) + '">' + Utils.htmlEscape(mode.name) + '</option>';
         }).join('') +
         '</select>';
 };
 
 ModulationEditor.prototype.getHtml = function() {
     var $option = this.input.find('option:selected')
-    return $option.html();
+    return Utils.htmlEscape($option.text());
 };
 
 function UnderlyingEditor(table) {
@@ -200,7 +200,7 @@ UnderlyingEditor.prototype.getInputHtml = function() {
         '<option value="">None</option>' +
         $.map(this.modes, function(mode, name) {
             if (mode.analog && !mode.underlying.length)
-                return '<option value="' + name + '">' + mode.name + '</option>';
+                return '<option value="' + Utils.htmlEscape(name) + '">' + Utils.htmlEscape(mode.name) + '</option>';
             else
                 return '';
         }).join('') +
@@ -209,7 +209,7 @@ UnderlyingEditor.prototype.getInputHtml = function() {
 
 UnderlyingEditor.prototype.getHtml = function() {
     var $option = this.input.find('option:selected')
-    return $option? $option.html() : '';
+    return $option? Utils.htmlEscape($option.text()) : '';
 };
 
 function DescriptionEditor(table) {
@@ -406,15 +406,13 @@ $.fn.bookmarktable = function() {
                 var modes = $table.data('modes');
                 var $list = $('<table class="table table-sm">');
                 $list.append(bookmarks.map(function(b) {
-                    var row = $(
-                        '<tr>' +
-                            '<td><input class="form-check-input select" type="checkbox">&nbsp;</td>' +
-                            '<td>' + b.name + '</td>' +
-                            '<td class="frequency">' + renderFrequency(b.frequency) + '</td>' +
-                            '<td>' + renderModulation(b.modulation, modes) + '</td>' +
-//                            '<td>' + renderModulation(b.underlying, modes) + '</td>' +
-                        '</tr>'
-                    );
+                    var row = $('<tr></tr>');
+                    row.append($('<td></td>').append(
+                        $('<input class="form-check-input select" type="checkbox">')
+                    ).append(document.createTextNode('\u00a0')));
+                    row.append($('<td></td>').text(b.name));
+                    row.append($('<td class="frequency"></td>').text(renderFrequency(b.frequency)));
+                    row.append($('<td></td>').text(renderModulation(b.modulation, modes)));
                     row.data('bookmark', b);
                     return row;
                 }));
@@ -454,19 +452,26 @@ $.fn.bookmarktable = function() {
                                     var modesToScan = ['lsb', 'usb', 'cw', 'am', 'sam', 'nfm'];
                                     b.scannable = modesToScan.indexOf(b.modulation) >= 0;
                                 }
-                                return $(
-                                    '<tr data-id="' + obj.bookmark_id + '">' +
-                                        '<td data-editor="name" data-value="' + b.name + '">' + b.name + '</td>' +
-                                        '<td data-editor="frequency" data-value="' + b.frequency + '" class="frequency">' + renderFrequency(b.frequency) +'</td>' +
-                                        '<td data-editor="modulation" data-value="' + b.modulation + '">' + renderModulation(b.modulation, modes) + '</td>' +
-                                        '<td data-editor="underlying" data-value="' + b.underlying + '">' + renderModulation(b.underlying, modes) + '</td>' +
-                                        '<td data-editor="description" data-value="' + b.description + '">' + b.description + '</td>' +
-                                        '<td data-editor="scannable" data-value="' + b.scannable + '">' + (b.scannable? '&check;':'') + '</td>' +
-                                        '<td>' +
-                                            '<button type="button" class="btn btn-sm btn-danger bookmark-delete">delete</button>' +
-                                        '</td>' +
-                                    '</tr>'
-                                )
+                                var $row = $('<tr></tr>').attr('data-id', obj.bookmark_id);
+                                [
+                                    ['name', b.name, b.name],
+                                    ['frequency', b.frequency, renderFrequency(b.frequency)],
+                                    ['modulation', b.modulation, renderModulation(b.modulation, modes)],
+                                    ['underlying', b.underlying, renderModulation(b.underlying, modes)],
+                                    ['description', b.description, b.description],
+                                    ['scannable', b.scannable, b.scannable? '✓' : '']
+                                ].forEach(function(cell) {
+                                    var $cell = $('<td></td>')
+                                        .attr('data-editor', cell[0])
+                                        .attr('data-value', cell[1])
+                                        .text(cell[2]);
+                                    if (cell[0] === 'frequency') $cell.addClass('frequency');
+                                    $row.append($cell);
+                                });
+                                $row.append($('<td></td>').append(
+                                    $('<button type="button" class="btn btn-sm btn-danger bookmark-delete">delete</button>')
+                                ));
+                                return $row[0];
                             }));
                         }
                     });

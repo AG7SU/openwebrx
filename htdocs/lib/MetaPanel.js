@@ -637,10 +637,11 @@ HdrMetaPanel.prototype.update = function(data) {
     // Update program selector
     var $select = $('#hdr-program-id');
     if (data.audio_services && data.audio_services.length) {
-        $select.html(data.audio_services.map(function(pgm) {
+        var options = data.audio_services.map(function(pgm) {
             return $('<option>').val(pgm.id).prop('selected', data.program == pgm.id)
-                .text('P' + (pgm.id + 1) + ' - ' + pgm.name)[0].outerHTML;
-        }).join(''));
+                .text('P' + (pgm.id + 1) + ' - ' + pgm.name)[0];
+        });
+        $select.empty().append(options);
         $select.show();
     } else {
         $select.html('');
@@ -700,11 +701,10 @@ DabMetaPanel.prototype.update = function(data) {
 
     if ('programmes' in data) {
         var options = Object.entries(data.programmes).map(function(e) {
-            return $('<option>').val(e[0]).text(e[1])[0].outerHTML;
+            return $('<option>').val(e[0]).text(e[1])[0];
         });
-        this.$select.html(
-            options.join('') +
-            '<option value="" disabled selected hidden>Loading...</option>'
+        this.$select.empty().append(options).append(
+            $('<option value="" disabled selected hidden>Loading...</option>')
         );
 
         var me = this;

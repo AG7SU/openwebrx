@@ -5,6 +5,8 @@ from owrx.client import ClientRegistry
 from owrx.config import Config
 import json
 import re
+import html
+from urllib.parse import urlsplit
 
 import logging
 
@@ -58,8 +60,8 @@ class ClientController(AuthorizationMixin, WebpageController):
     def renderClient(c):
         return "<tr><td>{0}</td><td>{1}</td><td>{2}</td><td>{3} {4}</td><td>{5}</td></tr>".format(
             ClientController.renderIp(c["ip"]),
-            c["name"] if "name" in c else "",
-            "banned" if c["ban"] else c["sdr"] + " " + c["band"] if "sdr" in c else "n/a",
+            html.escape(str(c["name"])) if "name" in c else "",
+            "banned" if c["ban"] else html.escape(str(c["sdr"]) + " " + str(c["band"])) if "sdr" in c else "n/a",
             "until" if c["ban"] else "since",
             c["ts"].strftime("%H:%M:%S"),
             ClientController.renderButtons(c)
@@ -69,16 +71,24 @@ class ClientController(AuthorizationMixin, WebpageController):
     def renderIp(ip):
         pm = Config.get()
         ip = re.sub("^::ffff:", "", ip)
-        return """
-            <a href="{0}" target="_blank">{1}</a>
-        """.format(pm["geoip_url"].format(ip), ip)
+        label = html.escape(str(ip), quote=True)
+        try:
+            href = pm["geoip_url"].format(ip)
+            parsed = urlsplit(href)
+            if parsed.scheme.lower() not in ("http", "https") or not parsed.netloc:
+                return label
+        except (KeyError, TypeError, ValueError):
+            return label
+        return '<a href="{0}" target="_blank" rel="noopener noreferrer">{1}</a>'.format(
+            html.escape(href, quote=True), label
+        )
 
     @staticmethod
     def renderButtons(c):
         action = "unban" if c["ban"] else "ban"
         return """
             <button type="button" class="btn btn-sm btn-danger client-{0}" value="{1}">{2}</button>
-        """.format(action, c["ip"], action)
+        """.format(action, html.escape(str(c["ip"]), quote=True), action)
 
     def ban(self):
         try:

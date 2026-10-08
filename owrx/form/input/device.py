@@ -2,6 +2,7 @@ from owrx.form.input import Input, CheckboxInput, DropdownInput, DropdownEnum, T
 from owrx.form.input.converter import OptionalConverter
 from owrx.form.input.validator import RequiredValidator
 from owrx.soapy import SoapySettings
+import html
 
 
 class GainInput(Input):
@@ -26,9 +27,9 @@ class GainInput(Input):
             </div>
             {stageoption}
         """.format(
-            id=self.id,
-            classes=self.input_classes(errors),
-            value=display_value,
+            id=html.escape(str(self.id), quote=True),
+            classes=html.escape(self.input_classes(errors), quote=True),
+            value=html.escape(str(display_value), quote=True),
             label=self.label,
             options=self.render_options(value),
             stageoption="" if self.gain_stages is None else self.render_stage_option(value, errors),
@@ -42,7 +43,7 @@ class GainInput(Input):
                 {errors}
             </div>
         """.format(
-            id=self.id, input=self.render_input(value, errors), errors=self.render_errors(errors)
+            id=html.escape(str(self.id), quote=True), input=self.render_input(value, errors), errors=self.render_errors(errors)
         )
 
     def render_options(self, value):
@@ -59,7 +60,8 @@ class GainInput(Input):
             """
                 <option value="{value}" {selected}>{text}</option>
             """.format(
-                value=v[0], text=v[1], selected="selected" if mode == v[0] else ""
+                value=html.escape(str(v[0]), quote=True),
+                text=html.escape(str(v[1])), selected="selected" if mode == v[0] else ""
             )
             for v in options
         )
@@ -98,10 +100,10 @@ class GainInput(Input):
                         class="col-9 {classes}" placeholder="{stage}" step="any" {disabled}>
                     </div>
                 """.format(
-                    id=self.id,
-                    stage=stage,
-                    value=value_dict[stage] if stage in value_dict else "",
-                    classes=self.input_classes(errors),
+                    id=html.escape(str(self.id), quote=True),
+                    stage=html.escape(str(stage), quote=True),
+                    value=html.escape(str(value_dict[stage] if stage in value_dict else ""), quote=True),
+                    classes=html.escape(self.input_classes(errors), quote=True),
                     disabled="disabled" if self.disabled else "",
                 )
                 for stage in self.gain_stages
@@ -198,8 +200,8 @@ class SchedulerInput(Input):
             """
                 <option value="{id}" {selected}>{name}</option>
             """.format(
-                id=p_id,
-                name=p["name"],
+                id=html.escape(str(p_id), quote=True),
+                name=html.escape(str(p["name"])),
                 selected="selected" if stage_value == p_id else "",
             )
             for p_id, p in self.profiles.items()
@@ -216,9 +218,9 @@ class SchedulerInput(Input):
                 {options}
             </select> 
         """.format(
-            id="{}-{}".format(self.id, stage),
-            classes=self.input_classes(errors),
-            extra_classes=extra_classes,
+            id=html.escape("{}-{}".format(self.id, stage), quote=True),
+            classes=html.escape(self.input_classes(errors), quote=True),
+            extra_classes=html.escape(str(extra_classes), quote=True),
             disabled="disabled" if self.disabled else "",
             options=options,
         )
@@ -230,10 +232,10 @@ class SchedulerInput(Input):
                 """
                     <input type="time" class="{classes}" id="{id}" name="{id}" {disabled} value="{value}">
                 """.format(
-                    id="{}-{}-{}".format(self.id, "time", "start" if i == 0 else "end"),
-                    classes=self.input_classes(errors),
+                    id=html.escape("{}-{}-{}".format(self.id, "time", "start" if i == 0 else "end"), quote=True),
+                    classes=html.escape(self.input_classes(errors), quote=True),
                     disabled="disabled" if self.disabled else "",
-                    value=v,
+                    value=html.escape(str(v), quote=True),
                 )
                 for i, v in enumerate(values)
             )
@@ -280,7 +282,7 @@ class SchedulerInput(Input):
                     {select}
                 </div>
             """.format(
-                name=name,
+                name=html.escape(str(name)),
                 select=self.render_profiles_select(
                     value, errors, stage, stage, extra_classes="col-9", allow_empty=True
                 ),
@@ -302,8 +304,8 @@ class SchedulerInput(Input):
                 </div>
             </div>
         """.format(
-            id=self.id,
-            classes=self.input_classes(errors),
+            id=html.escape(str(self.id), quote=True),
+            classes=html.escape(self.input_classes(errors), quote=True),
             disabled="disabled" if self.disabled else "",
             options=self.render_options(value),
             entries=self.render_static_entires(value, errors),
@@ -327,7 +329,8 @@ class SchedulerInput(Input):
             """
                 <option value="{value}" {selected}>{name}</option>
             """.format(
-                value=value, name=name, selected="selected" if mode == value else ""
+                value=html.escape(str(value), quote=True), name=html.escape(str(name)),
+                selected="selected" if mode == value else ""
             )
             for value, name in options
         )
@@ -378,7 +381,7 @@ class WaterfallLevelsInput(Input):
             {errors}
         """.format(
             rowclass="is-invalid" if errors else "",
-            id=self.id,
+            id=html.escape(str(self.id), quote=True),
             input=self.render_input(value, errors),
             errors=self.render_errors(errors),
         )
@@ -402,13 +405,13 @@ class WaterfallLevelsInput(Input):
                     </div>
                 </div>
             """.format(
-                id=self.id,
-                name=name,
-                label=label,
-                value=value[name] if value and name in value else "0",
-                classes=self.input_classes(errors),
+                id=html.escape(str(self.id), quote=True),
+                name=html.escape(str(name), quote=True),
+                label=html.escape(str(label)),
+                value=html.escape(str(value[name] if value and name in value else "0"), quote=True),
+                classes=html.escape(self.input_classes(errors), quote=True),
                 disabled="disabled" if self.disabled else "",
-                unit=self.getUnit(),
+                unit=html.escape(str(self.getUnit())),
             )
             for name, label in self.getFields().items()
         )

@@ -2,18 +2,19 @@ $.fn.bookmarkDialog = function() {
     var $el = this;
     return {
         setModes: function(modes) {
-            $el.find('#modulation').html(modes.map(function(m) {
-                return '<option value="' + m.modulation + '">' + m.name + '</option>';
-            }).join(''));
+            var options = modes.map(function(m) {
+                return $('<option>').val(m.modulation).text(m.name)[0];
+            });
+            $el.find('#modulation').empty().append(options);
             return this;
         },
         setUnderlying: function(modes) {
-            $el.find('#underlying').html('<option value="">None</option>' +
-            modes.filter(function(m) {
+            var options = [ $('<option value="">None</option>') ].concat(modes.filter(function(m) {
                 return !m.underlying && m.type === 'analog';
             }).map(function(m) {
-                return '<option value="' + m.modulation + '">' + m.name + '</option>';
-            }).join(''));
+                return $('<option>').val(m.modulation).text(m.name)[0];
+            }));
+            $el.find('#underlying').empty().append(options);
             return this;
         },
         setValues: function(bookmark) {

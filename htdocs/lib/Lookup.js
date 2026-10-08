@@ -22,7 +22,7 @@ Lookup.cdata2country = function(cdata) {
         return '';
     else {
         var flag = this.ccode2flag(cdata[0]);
-        var name = cdata[1]? cdata[1] : '';
+        var name = cdata[1]? Utils.htmlEscape(cdata[1]) : '';
         return !flag? name : !name? flag : flag + '&nbsp;' + name;
     }
 };

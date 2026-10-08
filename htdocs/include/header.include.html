@@ -1,4 +1,4 @@
-<div class="webrx-top-container">
+<div class="webrx-top-container" data-csrf-token="${csrf_token}" data-session-timeout="${session_timeout}" data-usage-policy-url="${usage_policy_url}">
     <div class="webrx-top-bar">
         <a href="https://www.openwebrx.de/" target="_blank"><svg viewBox="0 0 591 100" class="webrx-top-logo"><title>Visit the OpenWebRX homepage</title><use xlink:href="${document_root}static/gfx/svg-defs.svg#top-logo"></use></svg></a>
         <img class="webrx-rx-avatar openwebrx-photo-trigger" src="${document_root}static/gfx/openwebrx-avatar.png" alt="Receiver avatar"/>
@@ -17,13 +17,6 @@
 
             <!-- session timeout and use policy page display -->
             <p id="pstt"></p>
-            <script>
-                var path = window.location.pathname;
-                var page = path.split("/").pop();
-                document.getElementById("pstt").innerHTML =
-                    ((page==="") && (${session_timeout}>0))?
-                    "<meta http-equiv=\"refresh\" content=\"${session_timeout}; url=${usage_policy_url}\">" : "";
-            </script>
         </section>
     </div>
     <div class="openwebrx-description-container">

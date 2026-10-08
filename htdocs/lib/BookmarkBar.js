@@ -111,15 +111,16 @@ BookmarkBar.prototype.render = function(){
     });
 
     var elements = bookmarks.map(function(b) {
-        var $bookmark = $(
-            '<div class="bookmark" data-source="' + b.source + '"' + (b.editable?' editable="editable"':'') + '>' +
+        var $bookmark = $('<div class="bookmark"></div>')
+            .attr('data-source', b.source)
+            .append($(
                 '<div class="bookmark-actions">' +
                     '<div class="openwebrx-button action" data-action="edit"><svg viewBox="0 0 80 80"><use xlink:href="static/gfx/svg-defs.svg#edit"></use></svg></div>' +
                     '<div class="openwebrx-button action" data-action="delete"><svg viewBox="0 0 80 80"><use xlink:href="static/gfx/svg-defs.svg#trashcan"></use></svg></div>' +
-                '</div>' +
-                '<div class="bookmark-content">' + b.name + '</div>' +
-            '</div>'
-        );
+                '</div><div class="bookmark-content"></div>'
+            ));
+        if (b.editable) $bookmark.attr('editable', 'editable');
+        $bookmark.find('.bookmark-content').text(b.name);
         if (b.description) {
             $bookmark.prop('title', b.description);
         }
@@ -240,15 +241,14 @@ BookmarkBar.prototype.searchBookmarks = function() {
     });
 
     // Prepare search results
-    text = result.map(b =>
-        '<tr><td class="search-left">' + b.name +
-        '</td><td class="search-right">' +
-        Utils.linkifyFreq(b.frequency, b.modulation) +
-        '</td></tr>'
-    ).join('\n');
-
-    // Output results
-    this.$search.find('#search-results').html(
-        '<table class="search-results">' + text + '</table>'
-    );
+    var $table = $('<table class="search-results"></table>');
+    var rows = result.map(function(b) {
+        var $row = $('<tr></tr>');
+        $row.append($('<td class="search-left"></td>').text(b.name));
+        $row.append($('<td class="search-right"></td>').html(
+            Utils.linkifyFreq(b.frequency, b.modulation)
+        ));
+        return $row[0];
+    });
+    this.$search.find('#search-results').empty().append($table.append(rows));
 };

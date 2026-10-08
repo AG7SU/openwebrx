@@ -63,10 +63,13 @@ function showMarkerInfoWindow(name, pos) {
 // Show information bubble for the receiver location
 function showReceiverInfoWindow(marker) {
     var iw = getInfoWindow();
-    iw.setContent(
-        '<h3>' + marker.config['receiver_name'] + '</h3>' +
-        '<div>Receiver Location</div>'
-    );
+    var content = document.createElement('div');
+    var title = document.createElement('h3');
+    title.textContent = marker.config['receiver_name'] || '';
+    var description = document.createElement('div');
+    description.textContent = 'Receiver Location';
+    content.append(title, description);
+    iw.setContent(content);
     iw.open(map, marker);
 };
 
@@ -95,7 +98,7 @@ MapManager.prototype.initializeMap = function(receiver_gps, api_key, weather_key
         var self = this;
 
         // After Google Maps API loads...
-        $.getScript("https://maps.googleapis.com/maps/api/js?key=" + api_key).done(function() {
+        $.getScript("https://maps.googleapis.com/maps/api/js?key=" + encodeURIComponent(api_key)).done(function() {
             // Create a map instance
             map = new google.maps.Map($('.openwebrx-map')[0], {
                 zoomControl:       true,

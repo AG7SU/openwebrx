@@ -2,17 +2,20 @@ import subprocess
 from functools import reduce
 from operator import and_
 import re
-from distutils.version import LooseVersion, StrictVersion
+from owrx.version import is_at_least
 import inspect
 from owrx.config.core import CoreConfig
 from owrx.config import Config
 import shlex
 import os
+import signal
 from datetime import datetime, timedelta
 
 import logging
 
 logger = logging.getLogger(__name__)
+
+FEATURE_PROBE_TIMEOUT_SECONDS = 10
 
 
 class UnknownFeatureException(Exception):
@@ -182,35 +185,42 @@ class FeatureDetector(object):
     def get_requirement_description(self, requirement):
         return inspect.getdoc(self._get_requirement_method(requirement))
 
-    def command_is_runnable(self, command, expected_result=None):
-        tmp_dir = CoreConfig().get_temporary_directory()
-        cmd = shlex.split(command)
+    def _run_feature_probe(self, command, output=subprocess.PIPE, error=subprocess.PIPE):
         env = os.environ.copy()
-        # prevent X11 programs from opening windows if called from a GUI shell
+        # Avoid opening a GUI when feature checks run from a desktop shell.
         env.pop("DISPLAY", None)
         try:
             process = subprocess.Popen(
-                cmd,
+                command,
                 stdin=subprocess.DEVNULL,
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-                cwd=tmp_dir,
+                stdout=output,
+                stderr=error,
+                cwd=CoreConfig().get_temporary_directory(),
                 env=env,
+                start_new_session=True,
             )
-            while True:
-                try:
-                    rc = process.wait(10)
-                    break
-                except subprocess.TimeoutExpired:
-                    logger.warning("feature check command \"%s\" did not return after 10 seconds!", command)
-                    process.kill()
+            stdout, stderr = process.communicate(timeout=FEATURE_PROBE_TIMEOUT_SECONDS)
+            return subprocess.CompletedProcess(command, process.returncode, stdout, stderr)
+        except subprocess.TimeoutExpired as e:
+            try:
+                os.killpg(process.pid, signal.SIGKILL)
+            except OSError:
+                process.kill()
+            process.communicate()
+            logger.debug("feature probe %r exceeded its %s second deadline", command, FEATURE_PROBE_TIMEOUT_SECONDS)
+            return None
+        except OSError as e:
+            logger.debug("feature probe %r failed: %s", command, e)
+            return None
 
-            if expected_result is None:
-                return rc != 32512
-            else:
-                return rc == expected_result
-        except (FileNotFoundError, PermissionError):
+    def command_is_runnable(self, command, expected_result=None):
+        cmd = shlex.split(command)
+        result = self._run_feature_probe(cmd, output=subprocess.DEVNULL, error=subprocess.DEVNULL)
+        if result is None:
             return False
+        if expected_result is None:
+            return result.returncode != 32512
+        return result.returncode == expected_result
 
     def has_csdr(self):
         """
@@ -221,16 +231,11 @@ class FeatureDetector(object):
         the OpenWebRX repositories, should be all you need. Do not forget
         to restart OpenWebRX after installing this package.
         """
-        required_version = LooseVersion("0.18.0")
-
         try:
             from pycsdr.modules import csdr_version
             from pycsdr.modules import version as pycsdr_version
 
-            return (
-                LooseVersion(csdr_version) >= required_version and
-                LooseVersion(pycsdr_version) >= required_version
-            )
+            return is_at_least(csdr_version, "0.18.0") and is_at_least(pycsdr_version, "0.18.0")
         except ImportError:
             return False
 
@@ -271,16 +276,11 @@ class FeatureDetector(object):
         repositories, should be all you need. Do not forget to
         restart OpenWebRX after installing this package.
         """
-        required_version = LooseVersion("0.6")
-
         try:
             from digiham.modules import digiham_version as digiham_version
             from digiham.modules import version as pydigiham_version
 
-            return (
-                LooseVersion(digiham_version) >= required_version
-                and LooseVersion(pydigiham_version) >= required_version
-            )
+            return is_at_least(digiham_version, "0.6") and is_at_least(pydigiham_version, "0.6")
         except ImportError:
             return False
 
@@ -288,18 +288,18 @@ class FeatureDetector(object):
         owrx_connector_version_regex = re.compile("^{} version (.*)$".format(re.escape(command)))
 
         try:
-            process = subprocess.Popen([command, "--version"], stdout=subprocess.PIPE)
-            matches = owrx_connector_version_regex.match(process.stdout.readline().decode())
+            process = self._run_feature_probe([command, "--version"], error=subprocess.DEVNULL)
+            if process is None:
+                return False
+            matches = owrx_connector_version_regex.match(process.stdout.decode(errors="replace").splitlines()[0])
             if matches is None:
                 return False
-            version = LooseVersion(matches.group(1))
-            process.wait(1)
-            return version >= required_version
-        except (FileNotFoundError, PermissionError):
+            return is_at_least(matches.group(1), required_version)
+        except (IndexError, UnicodeError):
             return False
 
     def _check_owrx_connector(self, command):
-        return self._check_connector(command, LooseVersion("0.5"))
+        return self._check_connector(command, "0.5")
 
     def has_rtl_connector(self):
         """
@@ -329,15 +329,11 @@ class FeatureDetector(object):
         return self._check_owrx_connector("soapy_connector")
 
     def _has_soapy_driver(self, driver):
-        try:
-            process = subprocess.Popen(["soapy_connector", "--listdrivers"], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
-
-            drivers = [line.decode().strip() for line in process.stdout]
-            process.wait(1)
-
-            return driver in drivers
-        except (FileNotFoundError, PermissionError):
+        process = self._run_feature_probe(["soapy_connector", "--listdrivers"], error=subprocess.DEVNULL)
+        if process is None:
             return False
+        drivers = [line.decode(errors="replace").strip() for line in process.stdout.splitlines()]
+        return driver in drivers
 
     def has_soapy_rtl_sdr(self):
         """
@@ -539,14 +535,14 @@ class FeatureDetector(object):
         wsjt_version_regex = re.compile("^WSJT-X (.*)$")
 
         try:
-            process = subprocess.Popen(["wsjtx_app_version", "--version"], stdout=subprocess.PIPE)
-            matches = wsjt_version_regex.match(process.stdout.readline().decode())
+            process = self._run_feature_probe(["wsjtx_app_version", "--version"], error=subprocess.DEVNULL)
+            if process is None:
+                return False
+            matches = wsjt_version_regex.match(process.stdout.decode(errors="replace").splitlines()[0])
             if matches is None:
                 return False
-            version = LooseVersion(matches.group(1))
-            process.wait(1)
-            return version >= required_version
-        except (FileNotFoundError, PermissionError):
+            return is_at_least(matches.group(1), required_version)
+        except (IndexError, UnicodeError):
             return False
 
     def has_wsjtx_2_3(self):
@@ -555,7 +551,7 @@ class FeatureDetector(object):
         [WSJT-X](https://wsjt.sourceforge.io/) version 2.3 or higher.
         Use the latest `wsjtx` package available in your Linux distribution.
         """
-        return self.has_wsjtx() and self._has_wsjtx_version(LooseVersion("2.3"))
+        return self.has_wsjtx() and self._has_wsjtx_version("2.3")
 
     def has_wsjtx_2_4(self):
         """
@@ -563,7 +559,7 @@ class FeatureDetector(object):
         [WSJT-X](https://wsjt.sourceforge.io/) version 2.4 or higher.
         Use the latest `wsjtx` package available in your Linux distribution.
         """
-        return self.has_wsjtx() and self._has_wsjtx_version(LooseVersion("2.4"))
+        return self.has_wsjtx() and self._has_wsjtx_version("2.4")
 
     def has_msk144decoder(self):
         """
@@ -595,11 +591,10 @@ class FeatureDetector(object):
         repositories. Do not forget to restart OpenWebRX after
         installing this package.
         """
-        required_version = StrictVersion("0.1")
         try:
             from js8py.version import strictversion
 
-            return strictversion >= required_version
+            return is_at_least(strictversion, "0.1")
         except ImportError:
             return False
 
@@ -663,24 +658,10 @@ class FeatureDetector(object):
         """
         # Will be looking for the --status-socket option
         dream_status_regex = re.compile(".*--status-socket.*")
-        # Look through the --help output
-        try:
-            process = subprocess.Popen(["dream", "--help"], stderr=subprocess.PIPE)
-            while process.poll() is None:
-                line = process.stderr.readline()
-                if line is None:
-                    # Output ended, old Dream
-                    return False
-                else:
-                    matches = dream_status_regex.match(line.decode())
-                    if matches is not None:
-                        # --status-socket option supported, new Dream!
-                        return True
-        except Exception as e:
-            # Something bad happens, probably no Dream
+        process = self._run_feature_probe(["dream", "--help"], output=subprocess.DEVNULL)
+        if process is None:
             return False
-        # Process ended, old Dream
-        return False
+        return dream_status_regex.search(process.stderr.decode(errors="replace")) is not None
 
     def has_sddc_connector(self):
         """
@@ -688,7 +669,7 @@ class FeatureDetector(object):
         allows connectivity with SDR devices powered by the `libsddc`
         library, such as RX666, RX888, HF103, etc.
         """
-        return self._check_connector("sddc_connector", LooseVersion("0.1"))
+        return self._check_connector("sddc_connector", "0.1")
 
     def has_soapy_sddc(self):
         """
@@ -716,7 +697,7 @@ class FeatureDetector(object):
         The [RunDS Connector](https://github.com/jketterl/runds_connector)
         allows using R&S radios via EB200 or Ammos.
         """
-        return self._check_connector("runds_connector", LooseVersion("0.2"))
+        return self._check_connector("runds_connector", "0.2")
 
     def has_codecserver_ambe(self):
         """
@@ -807,16 +788,11 @@ class FeatureDetector(object):
         should be all you need. Do not forget to restart OpenWebRX after
         installing this package.
         """
-        required_version = LooseVersion("0.0.11")
-
         try:
             from csdreti.modules import csdreti_version
             from csdreti.modules import version as pycsdreti_version
 
-            return (
-                LooseVersion(csdreti_version) >= required_version
-                and LooseVersion(pycsdreti_version) >= required_version
-            )
+            return is_at_least(csdreti_version, "0.0.11") and is_at_least(pycsdreti_version, "0.0.11")
         except ImportError:
             return False
 
@@ -845,19 +821,18 @@ class FeatureDetector(object):
     def _has_acarsdec_version(self, required_version):
         acarsdec_version_regex = re.compile(r"^Acarsdec\S*\s+v?(\S+)\s+Copyright")
         try:
-            process = subprocess.Popen(["acarsdec"], stderr=subprocess.PIPE)
+            process = self._run_feature_probe(["acarsdec"], output=subprocess.DEVNULL)
+            if process is None:
+                return False
             matches = None
-            for x in range(3):
-                matches = acarsdec_version_regex.match(process.stderr.readline().decode())
+            for line in process.stderr.decode(errors="replace").splitlines()[:3]:
+                matches = acarsdec_version_regex.match(line)
                 if matches is not None:
                     break
-            process.wait(1)
             if matches is None:
                 return False
-            else:
-                version = LooseVersion(matches.group(1))
-                return version >= required_version
-        except Exception as e:
+            return is_at_least(matches.group(1), required_version)
+        except (IndexError, UnicodeError):
             return False
 
     def has_acarsdec(self):
@@ -866,7 +841,7 @@ class FeatureDetector(object):
         [AcarsDec](https://github.com/f00b4r0/acarsdec) decoder. You can
         install the `acarsdec` package from the OpenWebRX+ repositories.
         """
-        return self._has_acarsdec_version(LooseVersion("4"))
+        return self._has_acarsdec_version("4")
 
     def has_imagemagick(self):
         """

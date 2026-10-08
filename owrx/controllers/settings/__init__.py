@@ -7,6 +7,7 @@ from owrx.breadcrumb import Breadcrumb, BreadcrumbItem, BreadcrumbMixin
 from owrx.websocket import WebSocketConnection
 from abc import ABCMeta, abstractmethod
 from urllib.parse import parse_qs
+import html
 
 import logging
 
@@ -14,6 +15,8 @@ logger = logging.getLogger(__name__)
 
 
 class SettingsController(AuthorizationMixin, WebpageController):
+    csp_unsafe_eval = True
+
     def indexAction(self):
         self.serve_template("settings.html", **self.template_variables())
 
@@ -25,6 +28,8 @@ class SettingsController(AuthorizationMixin, WebpageController):
 
 
 class SettingsFormController(AuthorizationMixin, BreadcrumbMixin, WebpageController, metaclass=ABCMeta):
+    csp_unsafe_eval = True
+
     def __init__(self, handler, request, options):
         super().__init__(handler, request, options)
         self.errors = {}
@@ -60,6 +65,7 @@ class SettingsFormController(AuthorizationMixin, BreadcrumbMixin, WebpageControl
         buttons = self.render_buttons()
         return """
             <form class="settings-body" method="POST">
+                <input type="hidden" name="csrf_token" value="{csrf_token}">
                 {sections}
                 <div class="buttons container">
                     {buttons}
@@ -68,6 +74,7 @@ class SettingsFormController(AuthorizationMixin, BreadcrumbMixin, WebpageControl
         """.format(
             sections=sections,
             buttons=buttons,
+            csrf_token=self.get_csrf_token() or "",
         )
 
     def render_buttons(self):
@@ -161,7 +168,7 @@ class SettingsFormController(AuthorizationMixin, BreadcrumbMixin, WebpageControl
                 </div>
             </div>
         """.format(
-            error=self.globalError
+            error=html.escape(str(self.globalError))
         )
 
 

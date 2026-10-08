@@ -25,13 +25,19 @@ Chat.recvMessage = function(nickname, text, color = 'white') {
     // Show chat panel
     toggle_panel('openwebrx-panel-log', true);
 
-    divlog(
-        Utils.HHMMSS(Date.now(), true) + '&nbsp;['
-      + '<span class="chatname" style="color:' + color + ';">'
-      + Utils.htmlEscape(nickname) + '</span>]:&nbsp;'
-      + '<span class="chatmessage">' + Utils.htmlEscape(text)
-      + '</span>'
-    );
+    var line = document.createElement('span');
+    line.appendChild(document.createTextNode(Utils.HHMMSS(Date.now(), true) + ' ['));
+    var name = document.createElement('span');
+    name.className = 'chatname';
+    name.style.color = color || 'white';
+    name.textContent = nickname || '';
+    line.appendChild(name);
+    line.appendChild(document.createTextNode(']: '));
+    var message = document.createElement('span');
+    message.className = 'chatmessage';
+    message.textContent = text || '';
+    line.appendChild(message);
+    divlog(line);
 };
 
 Chat.sendMessage = function(text, nickname = '') {

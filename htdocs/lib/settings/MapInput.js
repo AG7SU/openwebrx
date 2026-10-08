@@ -4,7 +4,7 @@ $.fn.mapInput = function() {
         var field_id = $el.attr("for");
         var $lat = $('#' + field_id + '-lat');
         var $lon = $('#' + field_id + '-lon');
-        $.getScript('https://maps.googleapis.com/maps/api/js?key=' + $el.data('key')).done(function(){
+        $.getScript('https://maps.googleapis.com/maps/api/js?key=' + encodeURIComponent($el.data('key'))).done(function(){
             $el.css('height', '200px');
             var lp = new locationPicker($el.get(0), {
                 lat: parseFloat($lat.val()),

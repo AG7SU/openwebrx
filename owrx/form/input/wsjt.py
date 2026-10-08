@@ -18,10 +18,10 @@ class Q65ModeMatrix(Input):
                 </label>
             </div>
         """.format(
-            classes=self.input_classes(errors),
-            id=self.checkbox_id(mode, interval),
+            classes=html.escape(self.input_classes(errors), quote=True),
+            id=html.escape(self.checkbox_id(mode, interval), quote=True),
             checked="checked" if "{}{}".format(mode.name, interval.value) in value else "",
-            checkboxText="Mode {} interval {}s".format(mode.name, interval.value),
+            checkboxText=html.escape("Mode {} interval {}s".format(mode.name, interval.value)),
             disabled="" if interval.is_available(mode) and not self.disabled else "disabled",
         )
 
@@ -71,8 +71,8 @@ class WsjtDecodingDepthsInput(Input):
             return """
                 <option value={mode}>{name}</option>
             """.format(
-                mode=m.modulation,
-                name=m.name,
+                mode=html.escape(str(m.modulation), quote=True),
+                name=html.escape(str(m.name)),
             )
 
         return """
@@ -82,9 +82,9 @@ class WsjtDecodingDepthsInput(Input):
                 <input class="form-control form-control-sm" type="number" step="1">
             </div>
         """.format(
-            id=self.id,
-            classes=self.input_classes(errors),
-            value=html.escape(value),
+            id=html.escape(str(self.id), quote=True),
+            classes=html.escape(self.input_classes(errors), quote=True),
+            value=html.escape("" if value is None else str(value), quote=True),
             options="".join(render_mode(m) for m in Modes.getAvailableModes() if isinstance(m, WsjtMode)),
             disabled="disabled" if self.disabled else ""
         )

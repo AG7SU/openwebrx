@@ -1,8 +1,7 @@
 from owrx.config import Config
-from owrx.config.core import CoreConfig
 from owrx.color import ColorCache
 from datetime import datetime, timedelta
-from ipaddress import ip_address
+from owrx.security import configured_trusted_proxies, resolve_client_ip
 import threading
 import re
 
@@ -163,15 +162,17 @@ class ClientRegistry(object):
 
     # Get client IP address from the handler.
     def getIp(self, handler):
-        trusted = CoreConfig().get_web_trusted_proxies()
-        ip = handler.client_address[0]
-        # Parse X-Forwarded-For header when incoming connection is
-        # from a local address or a trusted proxy
-        if ip_address(ip).is_private or (trusted is not None and ip in trusted):
-            if hasattr(handler, "headers") and "x-forwarded-for" in handler.headers:
-                ip = handler.headers['x-forwarded-for'].split(',')[0]
-        # Done
-        return ip
+        peer_ip = handler.client_address[0]
+        headers = getattr(handler, "headers", {})
+        try:
+            client_ip, _ = resolve_client_ip(
+                peer_ip, headers.get("X-Forwarded-For"), configured_trusted_proxies()
+            )
+        except (TypeError, ValueError):
+            client_ip = None
+        # If a configured proxy sends a missing or malformed chain, group the
+        # connection under that proxy rather than trusting an unverified value.
+        return client_ip or peer_ip
 
     # List all active and banned clients.
     def listAll(self):

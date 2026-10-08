@@ -1,5 +1,6 @@
 from typing import List
 from abc import ABC, abstractmethod
+import html
 
 
 class BreadcrumbItem(object):
@@ -9,7 +10,10 @@ class BreadcrumbItem(object):
 
     def render(self, documentRoot, active=False):
         return '<li class="breadcrumb-item {active}"><a href="{documentRoot}{href}">{title}</a></li>'.format(
-            documentRoot=documentRoot, href=self.href, title=self.title, active="active" if active else ""
+            documentRoot=html.escape(str(documentRoot), quote=True),
+            href=html.escape(str(self.href), quote=True),
+            title=html.escape(str(self.title), quote=True),
+            active="active" if active else "",
         )
 
 

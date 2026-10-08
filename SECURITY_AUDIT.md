@@ -52,26 +52,198 @@ CVE scan was performed; this is not an exhaustive audit of all frontend sinks.
 
 ## Remaining risks and deployment work
 
-- Deploy behind HTTPS. The application still supports plain HTTP, so cookies are not
-  unconditionally marked Secure. At an HTTPS-only reverse proxy, add Secure to the
-  session cookie and preserve the public Host header. Forwarded headers are not trusted
-  by this patch; an altered Host can cause legitimate origin checks to fail.
-- Login has no throttling, session storage has no global bound, and password changes
-  do not revoke all other sessions. Use ingress connection/rate limits until these
-  receive a dedicated implementation.
-- Origin/Fetch Metadata checks allow requests with neither Origin nor Referer nor
-  relevant Fetch Metadata, for existing non-browser clients. This is defense in depth,
-  not a complete token-based CSRF implementation for every legacy client. Administrative
-  delete/move routes still use GET and should eventually become POST with CSRF tokens.
-- `allow_remote_config` treats private peer addresses as local. A reverse proxy can
-  make public traffic appear local. Restrict administrative routes at ingress; do not
-  rely on that flag as the sole public-access boundary.
+The follow-up adds `test/security_radio_rendering.cjs` to CI. It injects active
+HTML payloads through JS8 thread messages and CW/RTTY skimmer messages, then
+checks that they remain text and create no active elements. Skimmer output now
+uses `textContent` for decoded text and frequency display. This covers those two
+rendering paths in jsdom; it does not replace the broader context review or
+real-browser verification of all remaining HTML sinks.
+
+- Login throttling, the in-process session bound, session expiry, CSRF tokens, and
+  POST-only administrative mutations are implemented in the follow-up below. Their
+  behavior still needs browser verification through the deployed proxy. Session and
+  throttle state remain process-local; credential-version checks reject stale sessions
+  across processes after a user-file reload, but do not share revocation state itself.
+- The application supports plain HTTP. At a TLS-terminating proxy, set
+  `OWRX_SECURE_COOKIES=true`, preserve the public Host header, and verify the actual
+  HAProxy chain. `OWRX_TRUSTED_PROXIES` must list only the immediate trusted proxy
+  addresses; do not rely on `allow_remote_config` alone to protect public administration.
+  Client accounting, per-IP limits, and bans now use the same allowlist and
+  right-to-left trusted-chain resolver as HTTP local-address classification;
+  missing or malformed forwarded chains fall back to the socket peer for
+  accounting, while HTTP admin classification fails closed and treats that
+  request as non-local. Focused tests cover direct peers, trusted proxies,
+  malformed chains, and an explicitly allowed VPN CIDR. Verify the actual HAProxy
+  chain before enabling this configuration. Remote settings
+  access now defaults off. Standard loopback, RFC1918, and link-local ranges
+  remain local; `OWRX_ADMIN_NETWORKS` accepts additional comma-separated CIDRs
+  for VPN administrators. Use the actual NetBird network range and
+  list the HAProxy socket peer in `OWRX_TRUSTED_PROXIES` so public clients retain
+  their real source address for the local-admin decision. Existing installations
+  with a persisted `allow_remote_config=true` value keep that explicit setting;
+  review it during upgrade. Administrators can enable it again when unrestricted
+  remote settings access is an intentional choice. Admin route authorization now
+  checks locality/that explicit setting even when a valid session cookie is
+  present. A regression case covers an already-authenticated public request;
+  deployment instructions and an external verification list are in
+  `docs/deployment-security.md`.
+- Origin checks allow requests with no Origin, Referer, or relevant Fetch Metadata for
+  non-browser compatibility. CSRF tokens now protect state-changing authenticated
+  requests and the anonymous login flow, but deployed browser/proxy verification remains.
 - Configurable command bases/static pipeline fragments remain trusted administrator
-  input. Filesystem containment assumes untrusted local processes cannot modify the
-  asset/data/temp directories during access; it is not a descriptor-based sandbox.
-- Uploaded images are checked by signatures, not decoded/re-encoded. External decoder
-  processes, configured outbound URLs, other map/message renderers, deployment
-  privileges, and bundled libraries warrant additional targeted review.
+  input. Filesystem containment assumes untrusted local processes cannot modify asset,
+  data, or temporary directories during access; it is not a descriptor-based sandbox.
+- Image uploads now decode/re-encode with resource limits. External decoder processes,
+  configured outbound URLs, remaining map/message renderers, deployment privileges,
+  and bundled libraries still warrant targeted review.
 
 The browser checks follow the principles in the [OWASP CSRF prevention guidance](https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html).
 Frame limits and masking checks follow [RFC 6455](https://www.rfc-editor.org/rfc/rfc6455.html).
+
+## Follow-up implementation — 2026-10-08
+
+The modernization work after this source-review snapshot has added CSRF tokens,
+bounded in-process sessions and login throttling, persisted credential-version
+checks for cross-process revocation, secure-cookie controls, and trusted-proxy
+address parsing. It also converted the identified administrative mutations to
+POST. Map popup metadata now escapes through a default-safe list-item helper;
+only generated links and country flag markup opt into HTML. Receiver details,
+chat/log output, dynamic mode/profile labels, and both server-rendered and
+client-imported bookmark fields now use escaped text or DOM APIs. The broader
+template/plugin scan and these changes have not been browser- or deployment-
+verified. See `MODERNIZATION_BASELINE.md` for the current status and outstanding
+receiver-host checks.
+
+This pass also closed a stored-XSS path in editable bookmarks: persisted names,
+descriptions, modulation labels, and mode JSON had been interpolated directly
+into server HTML; browser-imported bookmark fields had the same issue. Server
+templates now HTML-escape interpolated values, and client imports build cells
+with text/attribute DOM APIs.
+
+A follow-up sink review found ADS-B emergency and squawk labels, along with
+other decoded table values, were inserted into the aircraft table as HTML.
+Those text fields are now escaped before markup assembly. The table still uses
+HTML for fixed structure and generated links; browser verification and the
+remaining template/plugin review are open.
+
+The shared page header also interpolated receiver configuration into HTML
+without context escaping and embedded the usage-policy URL inside a JavaScript
+string that generated a meta-refresh element. Header text and attribute values
+are now escaped, help and policy links reject unsafe schemes, and the refresh
+element is built with DOM APIs. The administrator-configurable photo description
+retains basic formatting through the allowlist sanitizer described below; the
+rest of the template/plugin surface remains under review.
+
+Section toggles previously replaced an arrow by reading and rewriting their
+entire header through `innerHTML`. They now update `textContent`, with the DOM
+regression test checking that the symbol changes without creating active markup.
+
+The Google Maps receiver-location InfoWindow previously interpolated the
+configured receiver name into HTML. It now supplies a DOM node and assigns the
+name through `textContent`; the jsdom regression test covers an HTML payload.
+Map feature symbols received from map updates are parsed only when they match a
+numeric character entity or one of the three named entities used by the app;
+other values render as text. The browser regression test covers markup payloads
+and supported entity symbols.
+
+The feature report previously concatenated feature names into table markup and
+inserted Markdown parser output as HTML. It now builds rows through DOM APIs and copies
+only a formatting allowlist from parsed Markdown; links must resolve to HTTP(S),
+and are assigned `noopener noreferrer`. Script/style/embedded content and event
+attributes are dropped. npm audit found three advisories affecting Showdown
+2.1.0 ([ReDoS](https://github.com/advisories/GHSA-rmmh-p597-ppvv),
+[metadata XSS](https://github.com/advisories/GHSA-cr32-g25g-vxjj), and
+[table-header XSS](https://github.com/advisories/GHSA-22g5-r2x5-97cx)); the
+registry had no fixed npm release. The feature report now uses markdown-it 15.0.2,
+vendored with its MIT notice; the parser's bundle hash is checked by the DOM
+regression test. An npm audit of the versioned vendored-package inventory found
+no known vulnerabilities at the time of review. Unknown-version legacy assets are
+not represented in that npm lock.
+The jsdom regression test exercises active HTML, unsafe links, and injected
+feature and requirement names; this is a DOM regression check, not a full browser
+test of the report page.
+
+Settings breadcrumbs now escape configured labels and link targets, and
+exception text in the settings error card is HTML-escaped before rendering.
+Connected-client names, addresses, and profile labels are also escaped; GeoIP
+links are limited to HTTP(S) and use `noopener noreferrer`. Configured service
+and SDR profile labels are escaped in the services table. Form section titles
+and validation messages now escape dynamic values before HTML insertion. Settings
+field labels, IDs, values, textarea contents, option labels, and option values
+are escaped for their HTML contexts; help text passes through the formatting
+allowlist sanitizer. Device gain, scheduler, waterfall, location, image, and
+WSJT form controls apply the same escaping to dynamic configuration and hardware
+values. Regression tests cover textarea payloads, unsafe help links, dropdown
+option injection, and optional-field selectors.
+Photo descriptions retain basic formatting through an HTML allowlist; scripts,
+active embeds, event handlers, and unsafe URL schemes are removed before the
+header is rendered. The sanitizer has only received syntax/source review so far;
+malformed HTML and browser behavior still need verification.
+
+HTML responses now include `base-uri 'self'`, `object-src 'none'`, and a
+nonce-based `script-src` with `strict-dynamic`, plus
+`Referrer-Policy: strict-origin-when-cross-origin`. Every server-rendered
+external script and stylesheet receives a per-response nonce. Inline style
+attributes and CSSOM styling remain outside a `style-src` policy.
+
+The original 2026-10-08 CSP feasibility inventory found one inline `<script>`
+block, 42 inline event-handler attributes, and 68 inline `style` attributes
+across 14 HTML/include files. The header script now runs from `Header.js`, and
+the receiver controls use a fixed data-action dispatcher in
+`ReceiverUiEvents.js`. The jsdom regression scans every HTML template under
+`htdocs` and currently finds zero inline scripts and zero event-handler
+attributes. The enforcing script policy uses a nonce and `strict-dynamic`; the
+default HTML policy no longer includes `'unsafe-eval'`. The exception is scoped
+to the Google Maps page and settings pages because both load Google's Maps API
+for map display or location selection. Google Maps documents nonce propagation
+for dynamically inserted scripts and styles. The policy retains `https:`,
+`'self'`, and `blob:` for legacy compatibility. The existing trusted plugin
+loader can still execute administrator-selected remote plugin code under
+`strict-dynamic`; review
+and constrain that trust boundary before claiming that the policy limits remote
+script origins. The 68 static inline style attributes, runtime style creation,
+and CSSOM assignments remain outside a `style-src` policy. Verify the policy in
+browsers with both map providers before relying on it.
+
+Password creation and verification now reject empty values and values over 1024
+UTF-8 bytes. Verification checks this bound before PBKDF2, preventing a large
+password field from forcing expensive hashing; login and forced-change forms
+also cap input at 1024 characters. This does not raise the PBKDF2 work factor,
+which remains a separate receiver-host benchmark decision.
+
+New password records now persist their PBKDF2 iteration count. Existing records
+without the field continue to use the historical 100,000 iterations, and
+successful logins rehash records whose algorithm or cost is below the current
+target. Persisted iteration counts are bounded from 1 through 10,000,000 before
+verification. The target remains 100,000 until latency is measured on the
+receiver host.
+
+`tools/benchmark_password_hash.py` now provides a repeatable receiver-side
+measurement of the application's `HashedPassword.is_valid` path at candidate
+iteration counts. A development-host run measured 276 ms median at 600,000
+iterations, but this is not evidence for the receiver target. OWASP's current
+Password Storage Cheat Sheet recommends 600,000 iterations for PBKDF2-HMAC-
+SHA256 when PBKDF2 is selected; verify that cost against receiver latency and
+concurrent login load before changing the target.
+
+The pre-follow-up audit findings above describe the original state at review time;
+the follow-up and remaining-risk sections supersede those findings where they
+record implemented changes.
+
+Avatar and receiver-photo uploads now require successful ImageMagick decoding
+and are re-encoded as bounded PNGs. The conversion applies pixel-cache, area,
+time, thread, disk, dimension, and output-size limits. ImageMagick is a Debian
+recommendation rather than a hard dependency, so uploads fail closed with a
+service-unavailable response when no converter is installed. This has not been
+verified against deployed ImageMagick policies or malicious image fixtures.
+
+Queued digital decoder jobs now have a wall-clock kill deadline and bounded
+stdout and line sizes. The deadline kills the decoder's process group, avoiding
+an indefinitely blocked worker if the child stops producing output. Other SDR
+and decoder subprocesses still need a process-by-process resource review.
+
+Optional feature/version probes in `owrx/feature.py` now use a 10-second
+deadline and run in a separate process group; timeout cleanup kills that group.
+This prevents several startup capability checks from blocking indefinitely.
+Probe output is captured for version/driver parsing but is not separately
+size-bounded, and active SDR/decoder runtime processes have different lifetimes.

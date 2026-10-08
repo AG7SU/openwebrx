@@ -149,6 +149,7 @@ class CompiledAssetsController(GzipMixin, ModificationAwareController):
             "lib/Clock.js",
             "lib/Chat.js",
             "lib/UI.js",
+            "lib/ReceiverUiEvents.js",
         ],
         "map-google.js": [
             "lib/jquery-3.7.1.min.js",

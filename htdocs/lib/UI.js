@@ -85,7 +85,12 @@ UI.loadAudioSettings = function() {
 UI.showBubble = function(message) {
     var $bubble = $('#openwebrx-message-bubble');
     if ($bubble) {
-        $bubble.html(message);
+        $bubble.empty();
+        if (message instanceof Node) {
+            $bubble.append(message);
+        } else {
+            $bubble.text(String(message == null? '' : message));
+        }
         $bubble.show();
         $bubble.addClass('shown');
         if (this.bubbleTimeout) {
@@ -201,11 +206,11 @@ UI.tuneBookmark = function(b) {
     UI.setFrequency(b.frequency, false);
 
     // Show bookmark name in a bubble
-    UI.showBubble(
-        '<div style="text-align:center;">' + b.name +
-        (!b.description? '' : '<div style="font-size:75%;">' + b.description + '</div>') +
-        '</div>'
-    );
+    var $bubbleContent = $('<div style="text-align:center;"></div>').text(b.name || '');
+    if (b.description) {
+        $bubbleContent.append($('<div style="font-size:75%;"></div>').text(b.description));
+    }
+    UI.showBubble($bubbleContent[0]);
 
     // Done
     return true;
@@ -405,11 +410,11 @@ UI.toggleSection = function(el, on) {
     var next_el = el.nextElementSibling;
     if (next_el) {
         if ((next_el.classList.contains('closed')) && (toggle || on)) {
-            el.innerHTML = el.innerHTML.replace('\u25B4', '\u25BE');
+            el.textContent = el.textContent.replace('\u25B4', '\u25BE');
             next_el.classList.remove('closed');
             LS.save(el.id, true);
         } else if (toggle || !on) {
-            el.innerHTML = el.innerHTML.replace('\u25BE', '\u25B4');
+            el.textContent = el.textContent.replace('\u25BE', '\u25B4');
             next_el.classList.add('closed');
             LS.save(el.id, false);
         }

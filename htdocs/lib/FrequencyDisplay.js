@@ -53,7 +53,7 @@ FrequencyDisplay.prototype.setFrequency = function(freq) {
             }
         }
         this.digits[i][(isNaN(formatted[i]) ? 'remove' : 'add') + 'Class']('digit');
-        this.digits[i].html(formatted[i]);
+        this.digits[i].text(formatted[i]);
     }
     while (this.digits.length > formatted.length) {
         this.digits.pop().remove();

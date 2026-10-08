@@ -89,18 +89,28 @@ Utils.offsetFreq = function(freq, mod) {
 
 // Wrap given callsign or other ID into a clickable link.
 Utils.linkify = function(id, url = null, content = null, tip = null) {
+    id = String(id == null? '' : id);
     // If no specific content, use the ID itself
     if (content == null) content = id;
+    content = Utils.htmlEscape(content);
 
     // Compose tooltip
-    var tipText = tip? ' title="' + tip + '"'  : '';
+    var tipText = tip? ' title="' + Utils.htmlEscape(tip) + '"'  : '';
 
     // Must have valid ID and lookup URL
     if ((id == '') || (url == null) || (url == '')) {
         return tipText? '<div' + tipText + '>' + content + '</div>'  : content;
     } else {
-        return '<a target="callsign_info"' + tipText + ' href="' +
-            url.replaceAll('{}', id) + '">' + content + '</a>';
+        var href = url.replaceAll('{}', encodeURIComponent(id));
+        try {
+            var parsed = new URL(href, document.baseURI);
+            if (!['http:', 'https:'].includes(parsed.protocol)) return content;
+            href = parsed.href;
+        } catch (e) {
+            return content;
+        }
+        return '<a target="callsign_info" rel="noopener noreferrer"' + tipText + ' href="' +
+            Utils.htmlEscape(href) + '">' + content + '</a>';
     }
 };
 
@@ -152,25 +162,31 @@ Utils.linkifyIcao = function(icao, content = null) {
 
 // Create link to tune OWRX to the given frequency and modulation.
 Utils.linkifyFreq = function(freq, mod) {
+    var frequency = Number(freq);
+    var modulation = String(mod == null? '' : mod);
+    if (!Number.isFinite(frequency)) return Utils.htmlEscape(Utils.printFreq(freq));
     return '<a target="openwebrx-rx" href="/#freq='
-        + freq + ',mod=' + mod + '">' + Utils.printFreq(freq) + '</a>';
+        + encodeURIComponent(frequency) + ',mod=' + encodeURIComponent(modulation) + '">'
+        + Utils.htmlEscape(Utils.printFreq(frequency)) + '</a>';
 };
 
 // Create link to a map locator
 Utils.linkifyLocator = function(locator) {
     return '<a target="openwebrx-map" href="map?locator='
-        + encodeURIComponent(locator) + '">' + locator + '</a>';
+        + encodeURIComponent(locator) + '">' + Utils.htmlEscape(locator) + '</a>';
 }
 
 // Linkify given content so that clicking them opens the map with
 // the info bubble.
-Utils.linkToMap = function(id, content = null, attrs = "") {
+Utils.linkToMap = function(id, content = null, attrs = "", contentIsHtml = false) {
+    var safeContent = content == null? Utils.htmlEscape(id || '')
+        : contentIsHtml? content : Utils.htmlEscape(content);
     if (id) {
         return '<a ' + attrs + ' href="map?callsign='
             + encodeURIComponent(id) + '" target="openwebrx-map">'
-            + (content != null? content  : id) + '</a>';
+            + safeContent + '</a>';
     } else if (content != null) {
-        return '<div ' + attrs + '>' + content + '</div>';
+        return '<div ' + attrs + '>' + safeContent + '</div>';
     } else {
         return '';
     }
@@ -188,6 +204,64 @@ Utils.HHMMSS = function(t, local = false) {
     } else {
         return pad(t.getUTCHours()) + ':' + pad(t.getUTCMinutes()) + ':' + pad(t.getUTCSeconds());
     }
+};
+
+var relativeTimeFormatter = null;
+Utils.relativeTime = function(timestamp, now = Date.now()) {
+    var date = Number(timestamp);
+    var current = Number(now);
+    if (!Number.isFinite(date) || !Number.isFinite(current)) return '';
+
+    var difference = (date - current) / 1000;
+    var seconds = Math.abs(difference);
+    var unit;
+    var count;
+    if (seconds < 45) {
+        unit = 'second';
+        count = Math.round(seconds);
+    } else if (seconds < 90) {
+        unit = 'minute';
+        count = 1;
+    } else if (seconds < 45 * 60) {
+        unit = 'minute';
+        count = Math.round(seconds / 60);
+    } else if (seconds < 90 * 60) {
+        unit = 'hour';
+        count = 1;
+    } else if (seconds < 22 * 60 * 60) {
+        unit = 'hour';
+        count = Math.round(seconds / 3600);
+    } else if (seconds < 36 * 60 * 60) {
+        unit = 'day';
+        count = 1;
+    } else if (seconds < 26 * 86400) {
+        unit = 'day';
+        count = Math.round(seconds / 86400);
+    } else if (seconds < 45 * 86400) {
+        unit = 'month';
+        count = 1;
+    } else if (seconds < 320 * 86400) {
+        unit = 'month';
+        count = Math.round(seconds / (30 * 86400));
+    } else if (seconds < 548 * 86400) {
+        unit = 'year';
+        count = 1;
+    } else {
+        unit = 'year';
+        count = Math.round(seconds / (365 * 86400));
+    }
+
+    count *= Math.sign(difference);
+    if (typeof Intl !== 'undefined' && Intl.RelativeTimeFormat) {
+        if (relativeTimeFormatter === null) {
+            relativeTimeFormatter = new Intl.RelativeTimeFormat(undefined, {numeric: 'auto'});
+        }
+        return relativeTimeFormatter.format(count, unit);
+    }
+
+    var absoluteCount = Math.abs(count);
+    var label = absoluteCount + ' ' + unit + (absoluteCount === 1 ? '' : 's');
+    return count > 0 ? 'in ' + label : label + ' ago';
 };
 
 // Print location
@@ -248,7 +322,8 @@ Utils.distanceKm = function(p1, p2) {
 
 // Truncate string to a given number of characters, adding "..." to the end.
 Utils.truncate = function(str, count) {
-    return str.length > count? str.slice(0, count) + '&mldr;'  : str;
+    str = String(str == null? '' : str);
+    return str.length > count? str.slice(0, count) + '…'  : str;
 };
 
 // Convert degrees to compass direction.
@@ -267,14 +342,14 @@ Utils.loc2latlng = function(id) {
 
 // Convert given name to an information section title.
 Utils.makeListTitle = function(name) {
-    return '<div style="border-bottom:2px solid;padding-top:1em;"><b>' + name + '</b></div>';
+    return '<div style="border-bottom:2px solid;padding-top:1em;"><b>' + Utils.htmlEscape(name) + '</b></div>';
 };
 
 // Convert given name/value to an information section item.
-Utils.makeListItem = function(name, value) {
+Utils.makeListItem = function(name, value, valueIsHtml = false) {
     return '<div style="display:flex;justify-content:space-between;border-bottom:1px dotted;white-space:nowrap;">'
-        + '<span>' + name + '&nbsp;&nbsp;&nbsp;&nbsp;</span>'
-        + '<span>' + value + '</span>'
+        + '<span>' + Utils.htmlEscape(name) + '&nbsp;&nbsp;&nbsp;&nbsp;</span>'
+        + '<span>' + (valueIsHtml? value : Utils.htmlEscape(value)) + '</span>'
         + '</div>';
 };
 
@@ -288,7 +363,7 @@ Utils.getOpacityScale = function(age) {
 };
 
 // Save given canvas into a PNG file.
-Utils.saveCanvas = function(canvas) {
+Utils.saveCanvas = function(canvas, filename) {
     // Get canvas by its ID
     var c = document.getElementById(canvas);
     if (c == null) return;
@@ -299,7 +374,7 @@ Utils.saveCanvas = function(canvas) {
         var a = document.createElement('a');
         a.href = window.URL.createObjectURL(blob);
         a.style = 'display: none';
-        a.download = canvas + ".png";
+        a.download = (filename || canvas) + ".png";
         document.body.appendChild(a);
         a.click();
 
