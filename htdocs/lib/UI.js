@@ -12,6 +12,7 @@ UI.frame = false;
 UI.opacity = 100;
 UI.volume = -1;
 UI.volumeMuted = -1;
+UI.recordingAllowed = false;
 UI.nrThreshold = -20;
 UI.nrEnabled = false;
 UI.wheelSwap = false;
@@ -56,7 +57,7 @@ UI.loadSettings = function() {
 // Load audio settings from local storage.
 UI.loadAudioSettings = function() {
     // Must have running audio engine
-    if (!audioEngine.isStarted()) return;
+    if (!window.OpenWebRXReceiver.audio.isStarted()) return;
 
     // Get volume and mute
     var volume = LS.has('volume')? LS.loadInt('volume') : 100;
@@ -110,7 +111,7 @@ UI.showBubble = function(message) {
 //
 
 UI.getDemodulatorPanel = function() {
-    return $('#openwebrx-panel-receiver').demodulatorPanel();
+    return OpenWebRXDemodulatorPanel.create(document.getElementById('openwebrx-panel-receiver'));
 };
 
 UI.getDemodulator = function() {
@@ -223,25 +224,23 @@ UI.tuneBookmark = function(b) {
 // Set audio volume in 0..150 range.
 UI.setVolume = function(x) {
     // Must have running audio engine
-    if (!audioEngine.isStarted()) return;
+    if (!window.OpenWebRXReceiver.audio.isStarted()) return;
 
     x = Math.min(150, Math.max(0, Math.round(parseFloat(x))));
     if (this.volume != x) {
         this.volume = x;
         LS.save('volume', x);
         $('#openwebrx-panel-volume').val(x)
-        if (audioEngine) {
-            // Map 0-150 to -55..+5db gain
-            gain = x > 0? Math.pow(10, ((x / 2.5) - 55) / 20) : 0;
-            audioEngine.setVolume(gain);
-        }
+        // Map 0-150 to -55..+5db gain.
+        gain = x > 0? Math.pow(10, ((x / 2.5) - 55) / 20) : 0;
+        window.OpenWebRXReceiver.audio.setGain(gain);
     }
 };
 
 // Toggle audio muting.
 UI.toggleMute = function(on) {
     // Must have running audio engine
-    if (!audioEngine.isStarted()) return;
+    if (!window.OpenWebRXReceiver.audio.isStarted()) return;
 
     // If no argument given, toggle mute
     var toggle = typeof(on) === 'undefined';
@@ -355,20 +354,281 @@ UI.updateNR = function() {
 // Audio Recording Controls
 //
 
-UI.toggleRecording = function(on) {
-    // If no argument given, toggle audio recording
-    var toggle = typeof(on) === 'undefined';
+UI.isRecordingAllowed = function() {
+    return this.recordingAllowed === true;
+};
 
+UI.setRecording = function(on) {
+    on = !!on;
+    var audio = window.OpenWebRXReceiver.audio;
+    if (!audio.isAvailable() || (on && (!audio.isStarted() || !this.isRecordingAllowed()))) return false;
     var $recButton = $('.openwebrx-record-button');
+    if (audio.isRecording() !== on) {
+        if (on) audio.startRecording();
+        else audio.stopRecording();
+    }
+    $recButton.css('animation-name', on ? 'openwebrx-record-animation' : '');
+    return true;
+};
 
-    if ($recButton.is(':visible')) {
-        if (audioEngine.recording && (toggle || !on)) {
-            audioEngine.stopRecording();
-            $recButton.css('animation-name', '');
-        } else if (toggle || on) {
-            audioEngine.startRecording();
-            $recButton.css('animation-name', 'openwebrx-record-animation');
+UI.toggleRecording = function(on) {
+    if (typeof(on) === 'undefined') {
+        if (!window.OpenWebRXReceiver.audio.isAvailable()) return false;
+        on = !window.OpenWebRXReceiver.audio.isRecording();
+    }
+    return this.setRecording(on);
+};
+
+UI.dispatchDecoderErrorEvent = function(value) {
+    if (!value || value.schema_version !== 1 || typeof value.message !== 'string' || value.message.length > 240) return false;
+    window.dispatchEvent(new CustomEvent('openwebrx:decoder-error', {detail: value}));
+    return true;
+};
+
+UI.dispatchDecoderOutputEvent = function(value) {
+    if (!value || value.schema_version !== 1 || !Number.isFinite(value.received_at)
+            || value.received_at <= 0 || (value.modulation !== undefined
+            && (typeof value.modulation !== 'string'
+            || !/^[a-z0-9][a-z0-9._-]{0,63}$/i.test(value.modulation)))) return false;
+    var modulation = value.modulation || UI.getModulation();
+    if (typeof modulation !== 'string' || !/^[a-z0-9][a-z0-9._-]{0,63}$/i.test(modulation)) {
+        modulation = 'unknown';
+    }
+    window.dispatchEvent(new CustomEvent('openwebrx:decoder-output', {
+        detail: Object.assign({}, value, {modulation: modulation})
+    }));
+    return true;
+};
+
+// Typed modern receiver island boundary. Keep legacy globals and DOM details
+// behind this facade while the existing DSP, waterfall, and audio engines are
+// migrated incrementally.
+window.OpenWebRXReceiver = {
+    getSnapshot: function() {
+        var frequency = UI.getFrequency();
+        var profileSelect = document.querySelector('#openwebrx-sdr-profiles-listbox');
+        var selectedProfile = profileSelect && profileSelect.selectedIndex >= 0
+            ? profileSelect.options[profileSelect.selectedIndex]
+            : null;
+        var readyState = window.ws && window.ws.readyState;
+        var connection = readyState === WebSocket.OPEN ? 'connected'
+            : readyState === WebSocket.CLOSING || readyState === WebSocket.CLOSED ? 'reconnecting'
+                : 'starting';
+        var capabilities = window.Modes && typeof window.Modes.getCapabilities === 'function'
+            ? window.Modes.getCapabilities()
+            : [];
+        return {
+            profileName: selectedProfile && selectedProfile.textContent ? selectedProfile.textContent : 'Live receiver',
+            frequencyHz: Number.isFinite(frequency) && frequency > 0 ? frequency : null,
+            tuningStepHz: Number.isFinite(window.tuning_step) && window.tuning_step > 0 ? window.tuning_step : 1,
+            connection: connection,
+            audio: window.OpenWebRXReceiver.audio.isStarted() ? 'playing' : 'waiting',
+            recording: window.OpenWebRXReceiver.audio.isRecording(),
+            recordingAllowed: UI.isRecordingAllowed(),
+            volume: Number.isFinite(UI.volume) ? Math.max(0, Math.min(150, UI.volume)) : 100,
+            muted: Number.isFinite(UI.volumeMuted) && UI.volumeMuted >= 0,
+            audioDroppedSamples: window.OpenWebRXReceiver.audio.getDroppedSamples(),
+            mode: UI.getModulation() || 'No mode',
+            availableModes: window.Modes ? window.Modes.getModes() : [],
+            modeCapabilities: capabilities,
+            waterfallZoomLevel: Number.isInteger(window.zoom_level) ? window.zoom_level : 0,
+            waterfallZoomMaximum: Math.max(0, (window.zoom_levels || [1]).length - 1)
+        };
+    },
+    tuneTo: function(frequencyHz) {
+        if (!Number.isFinite(frequencyHz) || frequencyHz <= 0) return false;
+        return UI.setFrequency(frequencyHz, true);
+    },
+    tuneBySteps: function(steps) {
+        if (!Number.isFinite(steps)) return false;
+        tuneBySteps(steps);
+        return true;
+    },
+    tuning: {
+        jumpBySteps: function(steps) {
+            if (!Number.isFinite(steps) || typeof window.jumpBySteps !== 'function') return false;
+            window.jumpBySteps(steps);
+            return true;
+        },
+        resetStep: function() {
+            if (typeof window.tuning_step_reset !== 'function') return false;
+            window.tuning_step_reset();
+            return true;
+        },
+        setStep: function(stepHz) {
+            if (!Number.isFinite(stepHz) || stepHz <= 0 || typeof window.setTuningStep !== 'function') return false;
+            return window.setTuningStep(stepHz);
         }
+    },
+    setMode: function(modulation) {
+        if (!modulation || !window.Modes || !window.Modes.getModes().some(function(mode) {
+            return mode.modulation === modulation;
+        })) return false;
+        UI.setModulation(modulation);
+        return true;
+    },
+    audio: {
+        isAvailable: function() { return !!window.audioEngine; },
+        isStarted: function() { return !!window.audioEngine && window.audioEngine.isStarted(); },
+        isAllowed: function() { return !!window.audioEngine && window.audioEngine.isAllowed(); },
+        isRecording: function() { return !!window.audioEngine && !!window.audioEngine.recording; },
+        getDroppedSamples: function() {
+            return window.audioEngine && Number.isFinite(window.audioEngine.audioDroppedSamples)
+                ? Math.max(0, window.audioEngine.audioDroppedSamples) : 0;
+        },
+        getOutputRate: function() { return window.audioEngine ? window.audioEngine.getOutputRate() : 0; },
+        getHdOutputRate: function() { return window.audioEngine ? window.audioEngine.getHdOutputRate() : 0; },
+        getSampleRate: function() { return window.audioEngine ? window.audioEngine.getSampleRate() : 0; },
+        setCompression: function(value) {
+            if (!window.audioEngine) return false;
+            window.audioEngine.setCompression(value);
+            return true;
+        },
+        setGain: function(value) {
+            if (!Number.isFinite(value) || !window.audioEngine) return false;
+            window.audioEngine.setVolume(value);
+            return true;
+        },
+        clearBuffer: function() {
+            if (!window.audioEngine) return false;
+            window.audioEngine.clearBuffer();
+            return true;
+        },
+        resume: function() {
+            if (!window.audioEngine) return false;
+            window.audioEngine.resume();
+            return true;
+        },
+        onStart: function(callback) {
+            if (!window.audioEngine || typeof callback !== 'function') return false;
+            window.audioEngine.onStart(callback);
+            return true;
+        },
+        startRecording: function() {
+            if (!window.audioEngine || !window.audioEngine.isStarted()) return false;
+            window.audioEngine.startRecording();
+            return true;
+        },
+        stopRecording: function() {
+            if (!window.audioEngine) return false;
+            window.audioEngine.stopRecording();
+            return true;
+        },
+        setVolume: function(volume) {
+            if (!Number.isFinite(volume)) return false;
+            UI.setVolume(Math.max(0, Math.min(150, Math.round(volume))));
+            return true;
+        },
+        toggleMute: function() {
+            UI.toggleMute();
+        },
+        setRecording: function(on) {
+            if (!window.audioEngine || !window.audioEngine.isStarted()) return false;
+            return UI.setRecording(!!on);
+        },
+        pushStream: function(data, highDefinition) {
+            if (!(data instanceof ArrayBuffer) || !window.audioEngine) return false;
+            if (highDefinition) window.audioEngine.pushHdAudio(data);
+            else window.audioEngine.pushAudio(data);
+            return true;
+        }
+    },
+    waterfall: {
+        updateColors: function(endpoint) {
+            if ((endpoint !== 0 && endpoint !== 1) || !window.Waterfall) return false;
+            window.Waterfall.updateColors(endpoint);
+            return true;
+        },
+        zoom: function(direction) {
+            var actions = {
+                in: window.zoomInOneStep,
+                out: window.zoomOutOneStep,
+                full: window.zoomOutTotal,
+                detail: window.zoomInTotal
+            };
+            if (!Object.prototype.hasOwnProperty.call(actions, direction) || typeof actions[direction] !== 'function') return false;
+            actions[direction]();
+            return true;
+        },
+        setRange: function(mode) {
+            if (!window.Waterfall) return false;
+            if (mode === 'auto') window.Waterfall.setAutoRange();
+            else if (mode === 'default') window.Waterfall.setDefaultRange();
+            else return false;
+            return true;
+        },
+        addLine: function(data) {
+            if (!(data instanceof Float32Array) || typeof window.waterfall_add !== 'function') return false;
+            window.waterfall_add(data);
+            return true;
+        },
+        addSecondaryLine: function(data) {
+            if (!(data instanceof Float32Array) || typeof window.secondary_demod_waterfall_add !== 'function') return false;
+            window.secondary_demod_waterfall_add(data);
+            return true;
+        },
+        clear: function() {
+            if (typeof window.waterfall_clear !== 'function') return false;
+            window.waterfall_clear();
+            return true;
+        }
+    },
+    display: {
+        toggleSection: function(section) { UI.toggleSection(section); },
+        toggleNoiseReduction: function() { UI.toggleNR(); },
+        setNoiseReduction: function(value) {
+            if (!Number.isFinite(value)) return false;
+            UI.setNR(value);
+            return true;
+        },
+        setTheme: function(value) { UI.setTheme(value); },
+        setWaterfallTheme: function(value) { UI.setWfTheme(value); },
+        toggleOpacity: function() { UI.toggleOpacity(); },
+        setOpacity: function(value) {
+            if (!Number.isFinite(value)) return false;
+            UI.setOpacity(value);
+            return true;
+        },
+        bumpOpacity: function() { UI.bumpOpacity(); },
+        toggleSpectrum: function() { UI.toggleSpectrum(); },
+        toggleFrame: function(value) { UI.toggleFrame(!!value); },
+        toggleWheelSwap: function(value) { UI.toggleWheelSwap(!!value); },
+        toggleCrossFrequency: function(value) { UI.toggleCrossFreq(!!value); },
+        toggleBandplan: function(value) { UI.toggleBandplan(!!value); }
+    },
+    chat: {
+        send: function() {
+            if (!window.Chat || typeof window.Chat.send !== 'function') return false;
+            window.Chat.send();
+            return true;
+        },
+        keyPress: function(event) {
+            if (!window.Chat || typeof window.Chat.keyPress !== 'function') return false;
+            window.Chat.keyPress(event);
+            return true;
+        }
+    },
+    addCurrentBookmark: function() {
+        if (!window.bookmarks || typeof window.bookmarks.showEditDialog !== 'function') return false;
+        window.bookmarks.showEditDialog();
+        return true;
+    },
+    getProfiles: function() {
+        var select = document.querySelector('#openwebrx-sdr-profiles-listbox');
+        return select ? Array.from(select.options).map(function(option) {
+            return {id: option.value, name: option.textContent || option.value};
+        }).filter(function(profile) { return !!profile.id; }) : [];
+    },
+    getSelectedProfile: function() {
+        var select = document.querySelector('#openwebrx-sdr-profiles-listbox');
+        return select && select.value ? select.value : null;
+    },
+    selectProfile: function(profileId) {
+        var select = document.querySelector('#openwebrx-sdr-profiles-listbox');
+        if (!select || !Array.from(select.options).some(function(option) { return option.value === profileId; })) return false;
+        select.value = profileId;
+        sdr_profile_changed();
+        return true;
     }
 };
 

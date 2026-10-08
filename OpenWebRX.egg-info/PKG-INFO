@@ -10,6 +10,8 @@ Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE.txt
 Requires-Dist: packaging>=23.0
+Provides-Extra: mcp
+Requires-Dist: mcp==2.3.0; extra == "mcp"
 Dynamic: license-file
 
 OpenWebRX+
@@ -43,6 +45,12 @@ This is the **improved version** of the OpenWebRX online SDR. The pre-built Open
 
 For self-hosted deployments, see the [HAProxy, firewall, and NetBird security
 guide](docs/deployment-security.md) before exposing a receiver publicly.
+The optional [MCP integration](docs/mcp-integration.md) exposes read-only
+receiver status over local stdio or bearer-protected Streamable HTTP.
+For Docker Compose deployments, see [the deployment guide](docs/deployment-compose.md).
+The optional [Data2G receive mode](docs/data2g-integration.md) decodes
+Data2G/KISS broadcasts from a selected USB/LSB receiver profile when the native
+host is explicitly configured.
 
 Original OpenWebRX
 =========

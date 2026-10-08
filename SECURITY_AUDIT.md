@@ -52,6 +52,18 @@ CVE scan was performed; this is not an exhaustive audit of all frontend sinks.
 
 ## Remaining risks and deployment work
 
+The optional `openwebrx-mcp` service defaults to local stdio and reads the public
+`/status.json` endpoint. It returns only station name/version/client limit,
+active SDR type, and profile frequency/sample-rate metadata. It omits GPS,
+location, and administrator contact information; external status origins require
+HTTPS, redirects are rejected, and response size/time are bounded. Its opt-in
+Streamable HTTP mode requires a shared bearer token, binds to loopback by
+default, and retains SDK Host/Origin checks; any wider bind requires an explicit
+host allowlist and deployment firewall/TLS policy. It has no write, tuning,
+transmit, or PTT tools. Static bearer authentication does not provide OAuth
+login/discovery; use a trusted client configured with that header, and add an
+OAuth verifier before offering general-purpose remote access.
+
 The follow-up adds `test/security_radio_rendering.cjs` to CI. It injects active
 HTML payloads through JS8 thread messages and CW/RTTY skimmer messages, then
 checks that they remain text and create no active elements. Skimmer output now
@@ -201,9 +213,12 @@ for dynamically inserted scripts and styles. The policy retains `https:`,
 loader can still execute administrator-selected remote plugin code under
 `strict-dynamic`; review
 and constrain that trust boundary before claiming that the policy limits remote
-script origins. The 68 static inline style attributes, runtime style creation,
-and CSSOM assignments remain outside a `style-src` policy. Verify the policy in
-browsers with both map providers before relying on it.
+script origins. All 68 static inline style attributes found in the original
+template scan have now been moved to local stylesheets, and a DOM-source
+regression check prevents new inline style attributes in HTML templates. Style
+attributes still occur in JavaScript-generated markup, and runtime CSSOM writes
+remain outside a `style-src` policy. Verify both map providers and the dynamic
+style paths in browsers before enforcing a style policy.
 
 Password creation and verification now reject empty values and values over 1024
 UTF-8 bytes. Verification checks this bound before PBKDF2, preventing a large

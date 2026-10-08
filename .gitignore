@@ -4,3 +4,4 @@ tags
 .idea
 packages
 host-baseline.json
+frontend/receiver-modern/node_modules/

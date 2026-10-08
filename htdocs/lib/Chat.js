@@ -17,7 +17,8 @@ Chat.setNickname = function(nickname) {
     if (this.nickname !== nickname) {
         this.nickname = nickname;
         LS.save('chatname', nickname);
-        $('#openwebrx-chat-name').val(nickname);
+        var input = document.getElementById('openwebrx-chat-name');
+        if (input) input.value = nickname;
     }
 };
 
@@ -48,11 +49,13 @@ Chat.sendMessage = function(text, nickname = '') {
 
 // Collect nick and message from controls and send message.
 Chat.send = function() {
-    this.setNickname($('#openwebrx-chat-name').val().trim());
+    var nameInput = document.getElementById('openwebrx-chat-name');
+    this.setNickname(nameInput ? nameInput.value.trim() : this.nickname);
 
-    var msg = $('#openwebrx-chat-message').val().trim();
+    var messageInput = document.getElementById('openwebrx-chat-message');
+    var msg = messageInput ? messageInput.value.trim() : '';
     if (msg.length > 0) this.sendMessage(msg, this.nickname);
-    $('#openwebrx-chat-message').val('');
+    if (messageInput) messageInput.value = '';
 };
 
 // Attach events to chat controls.

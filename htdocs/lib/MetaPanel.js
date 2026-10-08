@@ -1074,14 +1074,37 @@ MetaPanel.types = {
     tetra: TetraMetaPanel
 };
 
-$.fn.metaPanel = function() {
-    return this.map(function() {
-        var $self = $(this);
-        if (!$self.data('metapanel')) {
-            var matches = /^openwebrx-panel-metadata-([a-z0-9]+)$/.exec($self.prop('id'));
-            var constructor = matches && MetaPanel.types[matches[1]] || MetaPanel;
-            $self.data('metapanel', new constructor($self));
-        }
-        return $self.data('metapanel');
-    });
+var metaPanelInstances = new WeakMap();
+
+function getMetaPanel(element) {
+    if (element && element.jquery) element = element[0];
+    if (!element || !element.ownerDocument) throw new TypeError('Metadata panel requires a DOM element');
+    if (!metaPanelInstances.has(element)) {
+        var matches = /^openwebrx-panel-metadata-([a-z0-9]+)$/.exec(element.id);
+        var constructor = matches && MetaPanel.types[matches[1]] || MetaPanel;
+        metaPanelInstances.set(element, new constructor($(element)));
+    }
+    return metaPanelInstances.get(element);
+}
+
+window.OpenWebRXMetaPanels = {
+    create: getMetaPanel,
+    initialize: function() {
+        return Array.from(document.querySelectorAll('.openwebrx-meta-panel'), getMetaPanel);
+    },
+    forEach: function(callback) {
+        document.querySelectorAll('.openwebrx-meta-panel').forEach(function(element) {
+            callback(getMetaPanel(element), element);
+        });
+    },
+    updateAll: function(data) {
+        this.forEach(function(panel) { panel.update(data); });
+    },
+    clearAll: function() {
+        this.forEach(function(panel) { panel.clear(); });
+    },
+    setWfmEnabled: function(enabled) {
+        var element = document.getElementById('openwebrx-panel-metadata-wfm');
+        if (element) getMetaPanel(element).setEnabled(!!enabled);
+    }
 };

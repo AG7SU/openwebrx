@@ -1,0 +1,288 @@
+/* OpenWebRX+ receiver identity: instrument charcoal, signal cyan, alert amber. */
+:root {
+    color-scheme: dark;
+    --rx-bg: #0b1118;
+    --rx-surface: #121d27;
+    --rx-surface-raised: #1a2a37;
+    --rx-border: #2b4050;
+    --rx-text: #e5edf2;
+    --rx-muted: #9aabb8;
+    --rx-cyan: #57d7e8;
+    --rx-amber: #f4b95f;
+    --rx-focus: #ffe08a;
+}
+
+html, body { background: var(--rx-bg); color: var(--rx-text); }
+body { accent-color: var(--rx-cyan); }
+
+.webrx-top-container {
+    background-color: var(--rx-surface);
+    background-image: linear-gradient(115deg, #152632 0%, #101820 70%, #182936 100%);
+    border-bottom: 1px solid var(--rx-border);
+    box-shadow: 0 8px 24px rgb(0 0 0 / 28%);
+}
+.webrx-top-bar { background: linear-gradient(90deg, rgb(6 12 17 / 20%), rgb(29 49 62 / 75%)); }
+.webrx-top-bar > .webrx-rx-texts { flex: 1 1 auto; width: auto; min-width: 0; }
+.webrx-top-bar > .openwebrx-main-buttons { flex: 0 0 auto; }
+.webrx-rx-title { color: var(--rx-text); font-size: 12pt; letter-spacing: .035em; }
+.webrx-rx-desc { color: var(--rx-muted) !important; }
+.webrx-rx-avatar { border: 1px solid var(--rx-border); border-radius: 12px; background: var(--rx-surface-raised); }
+
+.openwebrx-main-buttons .button {
+    border: 1px solid transparent;
+    border-radius: 9px;
+    color: var(--rx-text);
+    transition: background-color 140ms ease, border-color 140ms ease, transform 140ms ease;
+}
+.openwebrx-main-buttons .button img,
+.openwebrx-main-buttons .button svg { filter: none; color: var(--rx-cyan); }
+.openwebrx-main-buttons .button:hover { background: var(--rx-surface-raised); border-color: var(--rx-border); }
+.openwebrx-main-buttons .button:active { background: #203b49; transform: translateY(1px); }
+
+#openwebrx-frequency-container {
+    background-color: #111c25;
+    background-image: linear-gradient(180deg, #182630, #0d151c);
+    border-bottom: 1px solid var(--rx-border);
+}
+.webrx-actual-freq, .webrx-actual-freq input {
+    color: var(--rx-cyan);
+    text-shadow: 0 0 18px rgb(87 215 232 / 22%);
+}
+.openwebrx-button {
+    border: 1px solid var(--rx-border);
+    border-radius: 8px;
+    background: rgb(18 29 39 / 92%);
+    color: var(--rx-text);
+    transition: border-color 140ms ease, background-color 140ms ease, color 140ms ease;
+}
+.openwebrx-button:hover, .openwebrx-demodulator-button.highlighted, .openwebrx-button.highlighted {
+    border-color: var(--rx-cyan);
+    background: #18313d;
+    color: var(--rx-cyan);
+}
+.openwebrx-panel {
+    border: 1px solid var(--rx-border);
+    border-radius: 10px;
+    background: rgb(13 21 28 / 96%);
+    box-shadow: 0 12px 32px rgb(0 0 0 / 32%);
+    color: var(--rx-text);
+}
+.openwebrx-panel a, .openwebrx-panel .callsign { color: var(--rx-cyan); }
+.receiver-modern-modes-mounted #openwebrx-section-modes,
+.receiver-modern-modes-mounted #openwebrx-section-modes + .openwebrx-section { display: none !important; }
+.openwebrx-panel select, .openwebrx-panel input, .openwebrx-dialog select,
+.openwebrx-dialog input, .openwebrx-dialog textarea {
+    border-color: var(--rx-border);
+    border-radius: 6px;
+    background-color: var(--rx-surface);
+    color: var(--rx-text);
+}
+
+button:focus-visible, a:focus-visible, [tabindex]:focus-visible,
+input:focus-visible, select:focus-visible, textarea:focus-visible {
+    outline: 2px solid var(--rx-focus);
+    outline-offset: 2px;
+}
+
+@media (max-width: 700px) {
+    .webrx-top-bar { height: 58px; }
+    .webrx-rx-avatar { width: 38px; height: 38px; margin: 6px 3px 6px 6px; }
+    .webrx-rx-title { font-size: 10pt; }
+    .webrx-rx-desc { font-size: 8pt; }
+    .openwebrx-main-buttons { gap: 2px; padding: 4px 3px; }
+    .openwebrx-main-buttons .button { width: 43px; font-size: 8pt; }
+    .openwebrx-main-buttons .button img, .openwebrx-main-buttons .button svg { height: 30px; }
+    .webrx-actual-freq, .webrx-actual-freq input,
+    .webrx-actual-freq .input-group input, .webrx-actual-freq .input-group select { font-size: 14pt; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        scroll-behavior: auto !important;
+        transition-duration: .01ms !important;
+        animation-duration: .01ms !important;
+        animation-iteration-count: 1 !important;
+    }
+}
+
+/* Two independent source streams share one desktop receiver workspace. */
+#receiver-modern-secondary { display: none; }
+body.receiver-modern-dual #webrx-page-container {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-rows: auto auto minmax(0, 1fr);
+    min-height: 0;
+    overflow: hidden;
+}
+body.receiver-modern-dual #webrx-page-container > .webrx-top-container {
+    grid-column: 1 / -1;
+    grid-row: 1;
+    min-width: 0;
+}
+body.receiver-modern-dual #receiver-modern-ui {
+    grid-column: 1;
+    grid-row: 2;
+    min-width: 0;
+}
+body.receiver-modern-dual #receiver-modern-ui .receiver-island {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 8px 12px;
+    padding: 8px 10px;
+}
+body.receiver-modern-dual #receiver-modern-ui .receiver-island__identity {
+    grid-column: 1 / -1;
+    grid-template-columns: 1fr auto;
+    align-items: baseline;
+}
+body.receiver-modern-dual #receiver-modern-ui .receiver-island__mode-picker,
+body.receiver-modern-dual #receiver-modern-ui .receiver-island__status,
+body.receiver-modern-dual #receiver-modern-ui .receiver-island__audio {
+    grid-column: 1 / -1;
+}
+body.receiver-modern-dual #receiver-modern-ui .receiver-island__status { justify-content: flex-start; gap: 10px; }
+body.receiver-modern-dual #receiver-modern-ui .receiver-island__frequency { width: min(42vw, 185px); font-size: 17px; }
+body.receiver-modern-dual .openwebrx-waterfall-container {
+    grid-column: 1;
+    grid-row: 3;
+    min-width: 0;
+    min-height: 0;
+    overflow: hidden;
+}
+body.receiver-modern-dual #receiver-modern-secondary {
+    display: block;
+    grid-column: 2;
+    grid-row: 2 / 4;
+    min-width: 0;
+    min-height: 0;
+    overflow: hidden;
+    border-left: 1px solid var(--rx-border);
+    background: var(--rx-bg);
+}
+#receiver-modern-secondary iframe {
+    display: block;
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    border: 0;
+    background: var(--rx-bg);
+}
+body.receiver-modern-secondary-document #webrx-page-container {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
+    min-height: 0;
+    overflow: hidden;
+}
+body.receiver-modern-secondary-document .webrx-top-container,
+body.receiver-modern-secondary-document #receiver-modern-secondary {
+    display: none !important;
+}
+body.receiver-modern-secondary-document #receiver-modern-ui {
+    grid-column: 1;
+    grid-row: 1;
+    min-width: 0;
+}
+body.receiver-modern-secondary-document .openwebrx-waterfall-container {
+    grid-column: 1;
+    grid-row: 2;
+    min-width: 0;
+    min-height: 0;
+    overflow: hidden;
+}
+
+@media (max-width: 760px) {
+    html.receiver-modern-dual-document,
+    body.receiver-modern-dual {
+        height: auto;
+        min-height: 100%;
+        overflow-x: hidden;
+        overflow-y: auto;
+    }
+    body.receiver-modern-dual #webrx-page-container {
+        height: auto;
+        min-height: 100%;
+        overflow: visible;
+        grid-template-columns: minmax(0, 1fr);
+        grid-template-rows: auto auto minmax(72vh, 1fr) minmax(72vh, 1fr);
+    }
+    body.receiver-modern-dual #webrx-page-container > .webrx-top-container { grid-row: 1; }
+    body.receiver-modern-dual #receiver-modern-ui { grid-column: 1; grid-row: 2; }
+    body.receiver-modern-dual .openwebrx-waterfall-container { grid-column: 1; grid-row: 3; }
+    body.receiver-modern-dual #receiver-modern-secondary {
+        grid-column: 1;
+        grid-row: 4;
+        min-height: 72vh;
+        border-top: 1px solid var(--rx-border);
+        border-left: 0;
+    }
+    body.receiver-modern-secondary-document #webrx-page-container {
+        height: 100vh;
+        grid-template-rows: auto minmax(0, 1fr);
+    }
+}
+
+/* On phones, keep the receiver island and waterfall in the page flow. Move
+   legacy gain/filter/settings controls into an explicit, scrollable bottom sheet. */
+.receiver-island__advanced-toggle {
+    display: none;
+    min-height: 44px;
+    border: 1px solid var(--rx-border);
+    border-radius: 8px;
+    padding: 0 10px;
+    background: var(--rx-surface-raised);
+    color: var(--rx-cyan);
+    font: 600 11px sans-serif;
+}
+
+@media (max-width: 760px) {
+    html:has(body.receiver-modern-modes-mounted),
+    body.receiver-modern-modes-mounted {
+        height: auto !important;
+        min-height: 100%;
+        overflow-x: hidden !important;
+        overflow-y: auto !important;
+    }
+    body.receiver-modern-modes-mounted #webrx-page-container {
+        height: auto !important;
+        min-height: 100vh;
+        overflow: visible !important;
+    }
+    body.receiver-modern-modes-mounted .openwebrx-waterfall-container {
+        flex: 1 0 56vh;
+        min-height: 56vh;
+        overflow: visible;
+    }
+    body.receiver-modern-modes-mounted .receiver-island__advanced-toggle {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+    }
+    body.receiver-modern-modes-mounted #openwebrx-panels-container-right {
+        display: none !important;
+    }
+    body.receiver-modern-modes-mounted.receiver-modern-advanced-open #openwebrx-panels-container-right {
+        position: fixed !important;
+        inset: auto 6px 6px;
+        z-index: 1500;
+        display: flex !important;
+        align-items: stretch;
+        justify-content: flex-end;
+        width: auto;
+        height: auto;
+        max-height: min(65dvh, 560px);
+        overflow: auto;
+        padding: 6px;
+        border: 1px solid var(--rx-border);
+        border-radius: 12px;
+        background: rgb(9 16 22 / 98%);
+        box-shadow: 0 18px 48px rgb(0 0 0 / 55%);
+    }
+    body.receiver-modern-modes-mounted.receiver-modern-advanced-open #openwebrx-panel-receiver {
+        width: auto;
+        max-height: calc(min(65dvh, 560px) - 12px);
+        overflow: auto;
+        margin: 0;
+        transform: none !important;
+    }
+}

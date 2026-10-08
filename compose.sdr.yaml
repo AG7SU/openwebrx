@@ -1,0 +1,9 @@
+# Explicitly opt into USB SDR access. No USB devices are mapped by compose.yaml.
+# Only use this overlay on a Linux host with the USB bus mounted at this path.
+services:
+  receiver:
+    profiles: [sdr]
+    volumes:
+      - /dev/bus/usb:/dev/bus/usb:rw
+    device_cgroup_rules:
+      - "c 189:* rmw"

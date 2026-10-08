@@ -19,6 +19,9 @@ GIT_PYCSDR_ETI=https://github.com/luarvique/pycsdr-eti.git
 GIT_JS8PY=https://github.com/jketterl/js8py.git
 GIT_SKIMMER=https://github.com/luarvique/csdr-skimmer.git
 GIT_SOAPYSDRPLAY3=https://github.com/luarvique/SoapySDRPlay3.git
+# Pin the SDRplay driver revisions used by the RSPduo Master/Slave settings.
+SOAPYSDRPLAY3_COMMIT=34d26b366d64968d48f2f032d6413ef8f69fb237
+SOAPYSDRPLAY3_ARM_COMMIT=0641ead2bf082583d7f16a02ed59f855cf4fe6d7
 GIT_OPENWEBRX=https://github.com/luarvique/openwebrx.git
 GIT_REDSEA=https://github.com/windytan/redsea.git
 GIT_DUMP978=https://github.com/luarvique/dump978.git
@@ -361,7 +364,8 @@ if [ "${BUILD_SOAPYSDRPLAY3:-}" == "y" ]; then
 	git clone -b master "$GIT_SOAPYSDRPLAY3"
 	pushd SoapySDRPlay3
 	case $(uname -m) in
-		arm*) git checkout 0.8.7 ;;
+		arm*) git checkout "$SOAPYSDRPLAY3_ARM_COMMIT" ;;
+		*) git checkout "$SOAPYSDRPLAY3_COMMIT" ;;
 	esac
 	# Debian Bullseye uses SoapySDR v0.7
 	HAVE_SOAPY=`apt-cache search libsoapysdr0.7`

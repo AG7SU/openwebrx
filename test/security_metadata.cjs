@@ -5,6 +5,19 @@ const fs = require('node:fs');
 const path = require('node:path');
 const {JSDOM} = require('jsdom');
 const root = path.resolve(__dirname, '..');
+const receiverHtml = fs.readFileSync(path.join(root, 'htdocs/index.html'), 'utf8');
+assert.match(receiverHtml, /<link nonce="\$\{csp_nonce\}" rel="stylesheet"[^>]+static\/css\/receiver-modern\.css/);
+assert.match(receiverHtml, /name="viewport" content="width=device-width, initial-scale=1/);
+function htmlFiles(directory) {
+    return fs.readdirSync(directory, {withFileTypes: true}).flatMap(entry => {
+        const file = path.join(directory, entry.name);
+        return entry.isDirectory() ? htmlFiles(file) : (file.endsWith('.html') ? [file] : []);
+    });
+}
+for (const file of htmlFiles(path.join(root, 'htdocs'))) {
+    const source = fs.readFileSync(file, 'utf8');
+    assert(!/\sstyle\s*=/i.test(source), `${path.relative(root, file)} contains an inline style attribute`);
+}
 const leafletSource = fs.readFileSync(path.join(root, 'htdocs/map-leaflet.js'), 'utf8');
 const googleMapSource = fs.readFileSync(path.join(root, 'htdocs/map-google.js'), 'utf8');
 const mapInputSource = fs.readFileSync(path.join(root, 'htdocs/lib/settings/MapInput.js'), 'utf8');

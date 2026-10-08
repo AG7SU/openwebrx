@@ -37,6 +37,31 @@ const w = dom.window;
 const calls = [];
 w.UI = new Proxy({}, {get: (_, name) => (...args) => calls.push([`UI.${name}`, ...args])});
 w.Waterfall = new Proxy({}, {get: (_, name) => (...args) => calls.push([`Waterfall.${name}`, ...args])});
+w.OpenWebRXReceiver = {
+    getSnapshot: () => ({recording: !!w.recording}),
+    tuneBySteps: steps => calls.push(['bridge.tuneBySteps', steps]),
+    selectProfile: profile => calls.push(['bridge.selectProfile', profile]),
+    chat: {
+        send: () => calls.push(['bridge.chat.send']),
+        keyPress: event => calls.push(['bridge.chat.keyPress', event])
+    },
+    tuning: {
+        jumpBySteps: steps => calls.push(['bridge.tuning.jumpBySteps', steps]),
+        resetStep: () => calls.push(['bridge.tuning.resetStep']),
+        setStep: step => calls.push(['bridge.tuning.setStep', step])
+    },
+    audio: {
+        toggleMute: () => calls.push(['bridge.toggleMute']),
+        setVolume: volume => calls.push(['bridge.setVolume', volume]),
+        setRecording: on => { w.recording = on; calls.push(['bridge.setRecording', on]); return true; }
+    },
+    waterfall: {
+        setRange: mode => calls.push(['bridge.setRange', mode]),
+        zoom: direction => calls.push(['bridge.zoom', direction]),
+        updateColors: endpoint => calls.push(['bridge.updateColors', endpoint])
+    },
+    display: new Proxy({}, {get: (_, name) => (...args) => calls.push([`bridge.display.${name}`, ...args])})
+};
 w.Chat = {
     keyPress: event => calls.push(['Chat.keyPress', event]),
     send: () => calls.push(['Chat.send'])
@@ -52,22 +77,68 @@ w.bindReceiverUiEvents();
 const click = element => element.dispatchEvent(new w.MouseEvent('click', {bubbles: true}));
 const firstTuneButton = w.document.querySelector('.openwebrx-tune-button');
 click(firstTuneButton);
-assert(calls.some(([name, value]) => name === 'tuneBySteps' && value === -1));
+assert(calls.some(([name, value]) => name === 'bridge.tuneBySteps' && value === -1));
 
 const contextMenu = new w.MouseEvent('contextmenu', {bubbles: true, cancelable: true});
 firstTuneButton.dispatchEvent(contextMenu);
 assert.equal(contextMenu.defaultPrevented, true);
-assert(calls.some(([name, value]) => name === 'jumpBySteps' && value === -1));
+assert(calls.some(([name, value]) => name === 'bridge.tuning.jumpBySteps' && value === -1));
+assert(!calls.some(([name]) => name === 'jumpBySteps'));
 
 click(w.document.querySelector('#openwebrx-section-modes'));
-assert(calls.some(([name, element]) => name === 'UI.toggleSection' && element.id === 'openwebrx-section-modes'));
+assert(calls.some(([name, element]) => name === 'bridge.display.toggleSection' && element.id === 'openwebrx-section-modes'));
+assert(!calls.some(([name]) => name === 'UI.toggleSection'));
 click(w.document.querySelector('#openwebrx-chat-message').nextElementSibling);
-assert(calls.some(([name]) => name === 'Chat.send'));
+assert(calls.some(([name]) => name === 'bridge.chat.send'));
+assert(!calls.some(([name]) => name === 'Chat.send'));
+const chatMessage = w.document.querySelector('#openwebrx-chat-message');
+chatMessage.dispatchEvent(new w.KeyboardEvent('keydown', {key: 'Enter', bubbles: true}));
+assert(calls.some(([name]) => name === 'bridge.chat.keyPress'));
 
 const volume = w.document.querySelector('#openwebrx-panel-volume');
 volume.value = '42';
 volume.dispatchEvent(new w.Event('input', {bubbles: true}));
-assert(calls.some(([name, value]) => name === 'UI.setVolume' && value === '42'));
+assert(calls.some(([name, value]) => name === 'bridge.setVolume' && value === 42));
+volume.dispatchEvent(new w.Event('change', {bubbles: true}));
+assert.equal(calls.filter(([name]) => name === 'bridge.setVolume').length, 2);
+
+const profile = w.document.querySelector('#openwebrx-sdr-profiles-listbox');
+profile.innerHTML = '<option value="sdr1|profile1">Receiver 1</option><option value="sdr2|profile2">Receiver 2</option>';
+profile.value = profile.options[1].value;
+profile.dispatchEvent(new w.Event('change', {bubbles: true}));
+assert(calls.some(([name, value]) => name === 'bridge.selectProfile' && value === profile.options[1].value));
+
+click(w.document.querySelector('.openwebrx-mute-button'));
+assert(calls.some(([name]) => name === 'bridge.toggleMute'));
+click(w.document.querySelector('.openwebrx-record-button'));
+assert(calls.some(([name, value]) => name === 'bridge.setRecording' && value === true));
+click(w.document.querySelector('#openwebrx-waterfall-colors-auto'));
+assert(calls.some(([name, value]) => name === 'bridge.setRange' && value === 'auto'));
+click(w.document.querySelector('.openwebrx-zoom-button[data-owrx-click="zoom-in-step"]'));
+assert(calls.some(([name, value]) => name === 'bridge.zoom' && value === 'in'));
+
+const waterfallMin = w.document.querySelector('#openwebrx-waterfall-color-min');
+waterfallMin.dispatchEvent(new w.Event('change', {bubbles: true}));
+assert(calls.some(([name, endpoint]) => name === 'bridge.updateColors' && endpoint === 0));
+const nr = w.document.querySelector('#openwebrx-panel-nr');
+nr.value = '-7';
+nr.dispatchEvent(new w.Event('input', {bubbles: true}));
+assert(calls.some(([name, value]) => name === 'bridge.display.setNoiseReduction' && value === -7));
+const theme = w.document.querySelector('#openwebrx-themes-listbox');
+theme.value = 'default';
+theme.dispatchEvent(new w.Event('change', {bubbles: true}));
+assert(calls.some(([name, value]) => name === 'bridge.display.setTheme' && value === 'default'));
+const frame = w.document.querySelector('#openwebrx-frame-checkbox');
+frame.checked = true;
+frame.dispatchEvent(new w.Event('change', {bubbles: true}));
+assert(calls.some(([name, value]) => name === 'bridge.display.toggleFrame' && value === true));
+const tuningStep = w.document.querySelector('#openwebrx-tuning-step-listbox');
+tuningStep.innerHTML = '<option value="100">100 Hz</option><option value="1000">1 kHz</option>';
+tuningStep.value = '1000';
+tuningStep.dispatchEvent(new w.Event('change', {bubbles: true}));
+assert(calls.some(([name, value]) => name === 'bridge.tuning.setStep' && value === 1000));
+click(w.document.querySelector('[data-owrx-click="reset-tuning-step"]'));
+assert(calls.some(([name]) => name === 'bridge.tuning.resetStep'));
 
 const unrecognized = w.document.createElement('button');
 unrecognized.setAttribute('data-owrx-click', 'alert(1)');
@@ -84,7 +155,7 @@ setTimeout(() => {
     const headerWindow = new JSDOM(renderedHeader, {runScripts: 'outside-only', url: 'https://receiver.example/'});
     headerWindow.window.eval(fs.readFileSync(path.join(root, 'htdocs/lib/jquery-3.7.1.min.js'), 'utf8'));
     headerWindow.window.eval(fs.readFileSync(path.join(root, 'htdocs/lib/Header.js'), 'utf8'));
-    headerWindow.window.Header.applyPolicyRefresh();
+    headerWindow.window.OpenWebRXHeader.applyPolicyRefresh();
     const refresh = headerWindow.window.document.head.querySelector('meta[http-equiv="refresh"]');
     assert(refresh);
     assert.equal(refresh.content, '15; url=policy');

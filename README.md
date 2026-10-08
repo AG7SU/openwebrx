@@ -29,6 +29,18 @@ This is the **improved version** of the OpenWebRX online SDR. The pre-built Open
 
 For self-hosted deployments, see the [HAProxy, firewall, and NetBird security
 guide](docs/deployment-security.md) before exposing a receiver publicly.
+The optional [MCP integration](docs/mcp-integration.md) exposes read-only
+receiver status over local stdio or bearer-protected Streamable HTTP.
+For Docker Compose deployments, see [the deployment guide](docs/deployment-compose.md).
+For backup, upgrade, and rollback procedures, see the
+[deployment operations guide](docs/deployment-operations.md).
+For authenticated broker-based automation, see the
+[MQTT integration guide](docs/mqtt-integration.md).
+The optional [Data2G receive mode](docs/data2g-integration.md) decodes
+Data2G/KISS broadcasts from a selected USB/LSB receiver profile when the native
+host is explicitly configured.
+The modern receiver's [searchable reception history](docs/receiver-history.md)
+stores recent decoded output locally in the browser.
 
 Original OpenWebRX
 =========

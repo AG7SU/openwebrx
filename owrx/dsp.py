@@ -448,6 +448,7 @@ class DspManager(SdrSourceEventClient, ClientDemodulatorSecondaryDspEventClient)
 
         # current audio mode. should be "audio" or "hd_audio" depending on what demodulatur is in use.
         self.audioOutput = None
+        self.secondaryModulation = None
 
         # local demodulator properties not forwarded to the sdr
         # ensure strict validation since these can be set from the client
@@ -691,7 +692,10 @@ class DspManager(SdrSourceEventClient, ClientDemodulatorSecondaryDspEventClient)
     def _getSecondaryDemodulator(self, mod) -> Optional[SecondaryDemodulator]:
         if isinstance(mod, SecondaryDemodulator):
             return mod
-        if mod in ["ft8", "wspr", "jt65", "jt9", "ft4", "fst4", "fst4w", "q65"]:
+        if mod == "data2g":
+            from owrx.data2g_demod import Data2GDemodulator
+            return Data2GDemodulator()
+        elif mod in ["ft8", "wspr", "jt65", "jt9", "ft4", "fst4", "fst4w", "q65"]:
             from csdr.chain.digimodes import AudioChopperDemodulator
             from owrx.wsjt import WsjtParser
             return AudioChopperDemodulator(mod, WsjtParser())
@@ -851,6 +855,7 @@ class DspManager(SdrSourceEventClient, ClientDemodulatorSecondaryDspEventClient)
             return ElektroLritDemodulator()
 
     def setSecondaryDemodulator(self, mod):
+        self.secondaryModulation = mod if isinstance(mod, str) and mod else None
         demodulator = self._getSecondaryDemodulator(mod)
         if not demodulator:
             self.chain.setSecondaryDemodulator(None)
@@ -901,7 +906,9 @@ class DspManager(SdrSourceEventClient, ClientDemodulatorSecondaryDspEventClient)
             "hd_audio": self.handler.write_hd_audio,
             "smeter": self.handler.write_s_meter_level,
             "secondary_fft": self.handler.write_secondary_fft,
-            "secondary_demod": self._unpickle(self.handler.write_secondary_demod),
+            "secondary_demod": self._unpickle(
+                lambda message: self.handler.write_secondary_demod(message, self.secondaryModulation)
+            ),
             "meta": self._unpickle(self.handler.write_metadata),
         }
 

@@ -1,2 +1,3 @@
 [console_scripts]
 openwebrx = owrx.__main__:main
+openwebrx-mcp = owrx.mcp_server:main

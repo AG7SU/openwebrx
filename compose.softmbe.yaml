@@ -1,0 +1,8 @@
+# Optional digital voice decoder image. Use together with compose.yaml when
+# SoftMBE codecs are needed; the default core image stays smaller.
+services:
+  receiver:
+    image: openwebrx-modern:${OPENWEBRX_VERSION:-1.2.126}-softmbe
+    build:
+      args:
+        OPENWEBRX_BASE_IMAGE: slechev/openwebrxplus-softmbe:1.2.126@sha256:5350218b9d943d159236efa8d896f4efe6dcc178c4dcb7063ace9694a4c76892

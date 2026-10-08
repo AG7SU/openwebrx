@@ -6,56 +6,58 @@ function bindReceiverUiEvents() {
 
     var handlers = {
         click: {
-            'tune-down': function() { tuneBySteps(-1); },
-            'tune-up': function() { tuneBySteps(1); },
-            'chat-send': function() { Chat.send(); },
-            'toggle-section': function(event, element) { UI.toggleSection(element); },
-            'toggle-mute': function() { UI.toggleMute(); },
-            'reset-tuning-step': function() { tuning_step_reset(); },
-            'waterfall-auto-range': function() { Waterfall.setAutoRange(); },
-            'toggle-noise-reduction': function() { UI.toggleNR(); },
-            'waterfall-default-range': function() { Waterfall.setDefaultRange(); },
-            'theme-default': function() { UI.setTheme('default'); },
-            'toggle-opacity': function() { UI.toggleOpacity(); },
-            'waterfall-theme-default': function() { UI.setWfTheme('default'); },
-            'zoom-in-step': function() { zoomInOneStep(); },
-            'zoom-out-step': function() { zoomOutOneStep(); },
-            'zoom-in-total': function() { zoomInTotal(); },
-            'zoom-out-total': function() { zoomOutTotal(); },
-            'toggle-spectrum': function() { UI.toggleSpectrum(); },
-            'toggle-recording': function() { UI.toggleRecording(); }
+            'tune-down': function() { OpenWebRXReceiver.tuneBySteps(-1); },
+            'tune-up': function() { OpenWebRXReceiver.tuneBySteps(1); },
+            'chat-send': function() { OpenWebRXReceiver.chat.send(); },
+            'toggle-section': function(event, element) { OpenWebRXReceiver.display.toggleSection(element); },
+            'toggle-mute': function() { OpenWebRXReceiver.audio.toggleMute(); },
+            'reset-tuning-step': function() { OpenWebRXReceiver.tuning.resetStep(); },
+            'waterfall-auto-range': function() { OpenWebRXReceiver.waterfall.setRange('auto'); },
+            'toggle-noise-reduction': function() { OpenWebRXReceiver.display.toggleNoiseReduction(); },
+            'waterfall-default-range': function() { OpenWebRXReceiver.waterfall.setRange('default'); },
+            'theme-default': function() { OpenWebRXReceiver.display.setTheme('default'); },
+            'toggle-opacity': function() { OpenWebRXReceiver.display.toggleOpacity(); },
+            'waterfall-theme-default': function() { OpenWebRXReceiver.display.setWaterfallTheme('default'); },
+            'zoom-in-step': function() { OpenWebRXReceiver.waterfall.zoom('in'); },
+            'zoom-out-step': function() { OpenWebRXReceiver.waterfall.zoom('out'); },
+            'zoom-in-total': function() { OpenWebRXReceiver.waterfall.zoom('detail'); },
+            'zoom-out-total': function() { OpenWebRXReceiver.waterfall.zoom('full'); },
+            'toggle-spectrum': function() { OpenWebRXReceiver.display.toggleSpectrum(); },
+            'toggle-recording': function() {
+                OpenWebRXReceiver.audio.setRecording(!OpenWebRXReceiver.getSnapshot().recording);
+            }
         },
         contextmenu: {
-            'jump-down': function() { jumpBySteps(-1); },
-            'jump-up': function() { jumpBySteps(1); }
+            'jump-down': function() { OpenWebRXReceiver.tuning.jumpBySteps(-1); },
+            'jump-up': function() { OpenWebRXReceiver.tuning.jumpBySteps(1); }
         },
         change: {
-            'profile-change': function() { sdr_profile_changed(); },
-            'set-volume': function(event, element) { UI.setVolume(element.value); },
-            'tuning-step-change': function() { tuning_step_changed(); },
-            'waterfall-min': function() { Waterfall.updateColors(0); },
-            'set-noise-reduction': function(event, element) { UI.setNR(element.value); },
-            'waterfall-max': function() { Waterfall.updateColors(1); },
-            'set-theme': function(event, element) { UI.setTheme(element.value); },
-            'set-waterfall-theme': function(event, element) { UI.setWfTheme(element.value); },
-            'toggle-frame': function(event, element) { UI.toggleFrame(element.checked); },
-            'toggle-wheel-swap': function(event, element) { UI.toggleWheelSwap(element.checked); },
-            'toggle-cross-frequency': function(event, element) { UI.toggleCrossFreq(element.checked); },
-            'toggle-bandplan': function(event, element) { UI.toggleBandplan(element.checked); }
+            'profile-change': function(event, element) { OpenWebRXReceiver.selectProfile(element.value); },
+            'set-volume': function(event, element) { OpenWebRXReceiver.audio.setVolume(Number(element.value)); },
+            'tuning-step-change': function(event, element) { OpenWebRXReceiver.tuning.setStep(parseInt(element.value, 10)); },
+            'waterfall-min': function() { OpenWebRXReceiver.waterfall.updateColors(0); },
+            'set-noise-reduction': function(event, element) { OpenWebRXReceiver.display.setNoiseReduction(Number(element.value)); },
+            'waterfall-max': function() { OpenWebRXReceiver.waterfall.updateColors(1); },
+            'set-theme': function(event, element) { OpenWebRXReceiver.display.setTheme(element.value); },
+            'set-waterfall-theme': function(event, element) { OpenWebRXReceiver.display.setWaterfallTheme(element.value); },
+            'toggle-frame': function(event, element) { OpenWebRXReceiver.display.toggleFrame(element.checked); },
+            'toggle-wheel-swap': function(event, element) { OpenWebRXReceiver.display.toggleWheelSwap(element.checked); },
+            'toggle-cross-frequency': function(event, element) { OpenWebRXReceiver.display.toggleCrossFrequency(element.checked); },
+            'toggle-bandplan': function(event, element) { OpenWebRXReceiver.display.toggleBandplan(element.checked); }
         },
         input: {
-            'set-volume': function(event, element) { UI.setVolume(element.value); },
-            'set-noise-reduction': function(event, element) { UI.setNR(element.value); },
-            'set-opacity': function(event, element) { UI.setOpacity(element.value); }
+            'set-volume': function(event, element) { OpenWebRXReceiver.audio.setVolume(Number(element.value)); },
+            'set-noise-reduction': function(event, element) { OpenWebRXReceiver.display.setNoiseReduction(Number(element.value)); },
+            'set-opacity': function(event, element) { OpenWebRXReceiver.display.setOpacity(Number(element.value)); }
         },
         keydown: {
-            'chat-key': function(event) { Chat.keyPress(event); }
+            'chat-key': function(event) { OpenWebRXReceiver.chat.keyPress(event); }
         },
         mousemove: {
-            'bump-opacity': function() { UI.bumpOpacity(); }
+            'bump-opacity': function() { OpenWebRXReceiver.display.bumpOpacity(); }
         },
         mousedown: {
-            'bump-opacity': function() { UI.bumpOpacity(); }
+            'bump-opacity': function() { OpenWebRXReceiver.display.bumpOpacity(); }
         }
     };
 

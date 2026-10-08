@@ -26,7 +26,7 @@ function Filter(demodulator) {
             max_bw = 600000;
             break;
         default:
-            max_bw = parseInt(audioEngine.getOutputRate() / 2);
+            max_bw = parseInt(window.OpenWebRXReceiver.audio.getOutputRate() / 2);
             break;
     }
 

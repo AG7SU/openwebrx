@@ -409,9 +409,12 @@ Shortcuts.handleKey = function(event) {
 
         case 't':
             // T: Open frequency input
-            $('.webrx-actual-freq > div').click();
-            $('.webrx-actual-freq > div > input[type="number"]').focus();
-            $('.webrx-actual-freq > div > input[type="number"]').select();
+            var frequencyInput = document.querySelector('.webrx-actual-freq input[type="number"]');
+            if (frequencyInput) {
+                frequencyInput.closest('.webrx-actual-freq').firstElementChild.click();
+                frequencyInput.focus();
+                frequencyInput.select();
+            }
             break;
 
         case 'y':

@@ -12,8 +12,11 @@ license = "AGPL-3.0-only"
 authors = [{name = "Marat Fayzullin", email = "luarvique@gmail.com"}]
 maintainers = [{name = "Marat Fayzullin", email = "luarvique@gmail.com"}]
 urls = {Homepage = "https://www.openwebrx.de/"}
-scripts = {openwebrx = "owrx.__main__:main"}
+scripts = {openwebrx = "owrx.__main__:main", openwebrx-mcp = "owrx.mcp_server:main"}
 dependencies = ["packaging>=23.0"]
+
+[project.optional-dependencies]
+mcp = ["mcp==2.3.0"]
 
 [tool.setuptools.dynamic]
 version = {attr = "owrx.version._versionstring"}

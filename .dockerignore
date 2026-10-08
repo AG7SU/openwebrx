@@ -5,3 +5,15 @@
 **/*.swp
 black-env
 debian
+.venv
+.pytest_cache
+__pycache__
+**/__pycache__
+**/*.pyo
+build
+dist
+frontend
+test
+docs
+tools
+*.egg-info

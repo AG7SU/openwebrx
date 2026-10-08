@@ -25,7 +25,7 @@ jobs:
         run: |
           python -m pip install uv==0.8.13
           uv lock --check
-          uv sync --locked --no-install-project
+          uv sync --locked --extra mcp --no-install-project
 
       - name: Run Python test suite
         run: uv run --locked --no-sync python -m unittest discover -s test -p 'test*.py'
@@ -33,12 +33,18 @@ jobs:
       - name: Audit locked Python dependencies for known vulnerabilities
         run: |
           python -m pip install pip-audit
-          uv export --locked --format requirements.txt --no-emit-project \
+          uv export --locked --all-extras --format requirements.txt --no-emit-project \
             --output-file /tmp/openwebrx-locked-requirements.txt
           pip-audit --requirement /tmp/openwebrx-locked-requirements.txt
 
       - name: Audit versioned vendored browser packages
         run: npm audit --prefix tools/vendor-audit --audit-level=moderate
+
+      - name: Validate Docker Compose deployment variants
+        run: |
+          docker compose config --quiet
+          docker compose -f compose.yaml -f compose.softmbe.yaml config --quiet
+          docker compose -f compose.yaml -f compose.sdr.yaml --profile sdr config --quiet
 
       - name: Check frontend JavaScript syntax
         run: find htdocs -type f -name '*.js' ! -name '*.min.js' -print0 | xargs -0 -n1 node --check
@@ -49,7 +55,16 @@ jobs:
           NODE_PATH=/tmp/openwebrx-test-deps/node_modules node test/security_metadata.cjs
           NODE_PATH=/tmp/openwebrx-test-deps/node_modules node test/security_radio_rendering.cjs
           NODE_PATH=/tmp/openwebrx-test-deps/node_modules node test/receiver_ui_events.cjs
+          NODE_PATH=/tmp/openwebrx-test-deps/node_modules node test/chat.cjs
+          NODE_PATH=/tmp/openwebrx-test-deps/node_modules node test/header.cjs
+          NODE_PATH=/tmp/openwebrx-test-deps/node_modules node test/frequency_display.cjs
+          NODE_PATH=/tmp/openwebrx-test-deps/node_modules node test/demodulator_panel_factory.cjs
+          NODE_PATH=/tmp/openwebrx-test-deps/node_modules node test/meta_panel_factory.cjs
+          NODE_PATH=/tmp/openwebrx-test-deps/node_modules node test/progress_bar.cjs
           NODE_PATH=/tmp/openwebrx-test-deps/node_modules node test/map_vendor_smoke.cjs
+          NODE_PATH=/tmp/openwebrx-test-deps/node_modules node test/modern_receiver_ui.cjs
+          NODE_PATH=/tmp/openwebrx-test-deps/node_modules node test/recording_controls.cjs
+          node test/audio_worklet.cjs
 
       - name: Build PEP 517 wheel
         run: python -m pip wheel --no-deps --wheel-dir dist .
@@ -73,10 +88,21 @@ jobs:
               metadata_name = next(name for name in names if name.endswith(".dist-info/METADATA"))
               metadata = Parser().parsestr(archive.read(metadata_name).decode())
               assert metadata.get("Requires-Python") == ">=3.11"
-              assert metadata.get_all("Requires-Dist") == ["packaging>=23.0"]
+              requirements = metadata.get_all("Requires-Dist")
+              assert "packaging>=23.0" in requirements
+              assert any(
+                  requirement.replace("'", '"') == 'mcp==2.3.0; extra == "mcp"'
+                  for requirement in requirements
+              )
+              assert "openwebrx-mcp = owrx.mcp_server:main" in archive.read(
+                  next(name for name in names if name.endswith("entry_points.txt"))
+              ).decode()
               assert not any("__pycache__" in name or name.endswith((".pyc", ".pyo")) for name in names)
               for asset in (
                   "owrx/http.py",
+                  "owrx/client_queue.py",
+                  "owrx/mcp_server.py",
+                  "owrx/receiver_health.py",
                   "owrx/source/rtl_sdr.py",
                   "csdr/__init__.py",
                   "htdocs/lib/leaflet.geodesic-2.7.2.min.js",
@@ -87,7 +113,12 @@ jobs:
                   "htdocs/lib/licenses/LGPL-3.0.txt",
                   "htdocs/lib/licenses/Nite-Overlay-MIT.txt",
                   "htdocs/lib/markdown-it-15.0.2.min.js",
+                  "htdocs/css/receiver-modern.css",
+                  "htdocs/css/modern-shell.css",
                   "htdocs/lib/licenses/Markdown-it-MIT.txt",
+                  "htdocs/lib/licenses/Svelte-MIT.txt",
+                  "htdocs/modern/receiver-ui.js",
+                  "htdocs/modern/receiver-ui.css",
                   "htdocs/lib/leaflet/leaflet.js",
                   "htdocs/lib/leaflet/leaflet.css",
                   "htdocs/lib/leaflet/leaflet.textpath-1.2.3.js",
@@ -102,4 +133,35 @@ jobs:
                   "htdocs/lib/leaflet/licenses/Leaflet-Terminator-MIT.txt",
               ):
                   assert asset in names, asset
+          for page, href in (
+              ("htdocs/settings.html", "static/css/modern-shell.css"),
+              ("htdocs/settings/general.html", "${document_root}static/css/modern-shell.css"),
+              ("htdocs/settings/bookmarks.html", "../static/css/modern-shell.css"),
+              *((f"htdocs/{name}.html", "static/css/modern-shell.css") for name in (
+                  "clients", "services", "features", "files", "login", "pwchange", "policy",
+                  "map-google", "map-leaflet",
+              )),
+          ):
+              assert href in Path(page).read_text(), (page, href)
           PY
+
+  frontend:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22.12.0
+          cache: npm
+          cache-dependency-path: frontend/receiver-modern/package-lock.json
+      - name: Install modern receiver frontend
+        run: npm ci --prefix frontend/receiver-modern
+      - name: Type-check Svelte and TypeScript
+        run: npm run check --prefix frontend/receiver-modern
+      - name: Build Svelte receiver island
+        run: npm run build --prefix frontend/receiver-modern
+      - name: Audit modern frontend dependencies
+        run: npm audit --prefix frontend/receiver-modern --audit-level=moderate
+      - name: Ensure committed frontend bundle is current
+        run: git diff --exit-code -- htdocs/modern

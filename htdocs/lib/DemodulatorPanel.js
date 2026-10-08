@@ -1,24 +1,26 @@
 function DemodulatorPanel(el) {
     var self = this;
-    self.el = el;
+    self.root = el;
     self.demodulator = null;
     self.mode = null;
     self.squelchMargin = 10;
     self.initialParams = {};
 
-    var displayEl = el.find('.webrx-actual-freq')
-    this.tuneableFrequencyDisplay = displayEl.tuneableFrequencyDisplay();
-    displayEl.on('frequencychange', function(event, freq) {
+    var displayEl = self.root.querySelector('.webrx-actual-freq');
+    this.tuneableFrequencyDisplay = OpenWebRXFrequencyDisplay.createTuneable(displayEl);
+    displayEl.addEventListener('frequencychange', function(event) {
         var demod = self.getDemodulator();
         var delta = demod.get_modulation() === 'cw'? UI.getCwOffset() : 0;
-        demod.set_offset_frequency(freq - self.center_freq - delta);
+        demod.set_offset_frequency(event.detail - self.center_freq - delta);
     });
 
-    this.mouseFrequencyDisplay = el.find('.webrx-mouse-freq').frequencyDisplay();
+    this.mouseFrequencyDisplay = OpenWebRXFrequencyDisplay.create(self.root.querySelector('.webrx-mouse-freq'));
 
     Modes.registerModePanel(this);
-    el.on('click', '.openwebrx-demodulator-button', function() {
-        var modulation = $(this).data('modulation');
+    self.root.addEventListener('click', function(event) {
+        var button = event.target.closest('.openwebrx-demodulator-button');
+        if (!button || !self.root.contains(button)) return;
+        var modulation = button.getAttribute('data-modulation');
         if (modulation) {
             if (self.mode && self.mode.type === 'digimode' && self.mode.underlying.indexOf(modulation) >= 0) {
                 // keep the mode, just switch underlying modulation
@@ -30,20 +32,22 @@ function DemodulatorPanel(el) {
             self.disableDigiMode();
         }
     });
-    el.on('change', '.openwebrx-secondary-demod-listbox', function() {
-        var value = $(this).val();
-        if (value === 'none') {
-            self.disableDigiMode();
-        } else {
-            self.setMode(value);
+    self.root.addEventListener('change', function(event) {
+        if (event.target.matches('.openwebrx-secondary-demod-listbox')) {
+            var value = event.target.value;
+            if (value === 'none') {
+                self.disableDigiMode();
+            } else {
+                self.setMode(value);
+            }
+        } else if (event.target.matches('.openwebrx-squelch-slider')) {
+            self.updateSquelch();
         }
     });
-    el.on('click', '.openwebrx-squelch-auto', function() {
+    self.root.addEventListener('click', function(event) {
+        if (!event.target.closest('.openwebrx-squelch-auto') || !self.root.contains(event.target)) return;
         if (!self.squelchAvailable()) return;
-        el.find('.openwebrx-squelch-slider').val(getLogSmeterValue(smeter_level) + self.getSquelchMargin());
-        self.updateSquelch();
-    });
-    el.on('change', '.openwebrx-squelch-slider', function() {
+        self.root.querySelector('.openwebrx-squelch-slider').value = getLogSmeterValue(smeter_level) + self.getSquelchMargin();
         self.updateSquelch();
     });
     window.addEventListener('hashchange', function() {
@@ -59,32 +63,38 @@ DemodulatorPanel.prototype.render = function() {
         .filter(function(m){ return m.type === 'digimode'; })
         .sort(function(a, b){ return a.name.localeCompare(b.name) });
 
-    var html = []
-
-    var buttons = normalModes.map(function(m){
-        return $('<div class="openwebrx-button openwebrx-demodulator-button"></div>')
-            .attr('data-modulation', m.modulation)
-            .attr('id', 'openwebrx-button-' + m.modulation)
-            .text(m.name);
+    var doc = this.root.ownerDocument;
+    var modeGrid = doc.createElement('div');
+    modeGrid.className = 'openwebrx-modes-grid';
+    normalModes.forEach(function(mode) {
+        var button = doc.createElement('div');
+        button.className = 'openwebrx-button openwebrx-demodulator-button';
+        button.setAttribute('data-modulation', mode.modulation);
+        button.id = 'openwebrx-button-' + mode.modulation;
+        button.textContent = mode.name;
+        modeGrid.append(button);
     });
 
-    var $modegrid = $('<div class="openwebrx-modes-grid"></div>');
-    $modegrid.append.apply($modegrid, buttons);
-    html.push($modegrid);
-
-    var $digitalModes = $(
-        '<div class="openwebrx-panel-line openwebrx-panel-flex-line">' +
-            '<div class="openwebrx-button openwebrx-demodulator-button openwebrx-button-dig">DIG</div>' +
-            '<select class="openwebrx-secondary-demod-listbox"><option value="none"></option></select>' +
-        '</div>'
-    );
-    var digitalOptions = digiModes.map(function(m) {
-        return $('<option>').val(m.modulation).text(m.name)[0];
+    var digitalModes = doc.createElement('div');
+    digitalModes.className = 'openwebrx-panel-line openwebrx-panel-flex-line';
+    var digitalButton = doc.createElement('div');
+    digitalButton.className = 'openwebrx-button openwebrx-demodulator-button openwebrx-button-dig';
+    digitalButton.textContent = 'DIG';
+    var select = doc.createElement('select');
+    select.className = 'openwebrx-secondary-demod-listbox';
+    var none = doc.createElement('option');
+    none.value = 'none';
+    select.append(none);
+    digiModes.forEach(function(mode) {
+        var option = doc.createElement('option');
+        option.value = mode.modulation;
+        option.textContent = mode.name;
+        select.append(option);
     });
-    $digitalModes.find('select').append(digitalOptions);
-    html.push($digitalModes);
+    digitalModes.append(digitalButton, select);
 
-    this.el.find(".openwebrx-modes").html(html);
+    var container = this.root.querySelector('.openwebrx-modes');
+    if (container) container.replaceChildren(modeGrid, digitalModes);
 };
 
 DemodulatorPanel.prototype.setMode = function(requestedModulation, underlyingModulation) {
@@ -135,9 +145,9 @@ DemodulatorPanel.prototype.setMode = function(requestedModulation, underlyingMod
     this.demodulator.on("frequencychange", updateFrequency);
     updateFrequency(this.demodulator.get_offset_frequency());
     var updateSquelch = function(squelch) {
-        self.el.find('.openwebrx-squelch-slider')
-            .val(squelch)
-            .attr('title', 'Squelch (' + squelch + ' dB)');
+        var slider = self.root.querySelector('.openwebrx-squelch-slider');
+        slider.value = squelch;
+        slider.title = 'Squelch (' + squelch + ' dB)';
         self.updateHash();
     };
     this.demodulator.on('squelchchange', updateSquelch);
@@ -173,7 +183,8 @@ DemodulatorPanel.prototype.disableDigiMode = function() {
 
 DemodulatorPanel.prototype.updatePanels = function() {
     var modulation = this.getDemodulator().get_secondary_demod();
-    $('#openwebrx-panel-digimodes').attr('data-mode', modulation);
+    var digimodesPanel = document.getElementById('openwebrx-panel-digimodes');
+    if (digimodesPanel) digimodesPanel.setAttribute('data-mode', modulation || '');
     var mode = Modes.findByModulation(modulation);
     toggle_panel("openwebrx-panel-digimodes", modulation && (!mode || mode.secondaryFft));
     // WSJT-X modes share the same panel
@@ -193,12 +204,9 @@ DemodulatorPanel.prototype.updatePanels = function() {
 
     modulation = this.getDemodulator().get_modulation();
     var showing = 'openwebrx-panel-metadata-' + modulation;
-    var metaPanels = $(".openwebrx-meta-panel");
-    metaPanels.each(function (_, p) {
+    OpenWebRXMetaPanels.forEach(function(metaPanel, p) {
         toggle_panel(p.id, p.id === showing && !p.classList.contains('disabled'));
-    });
-    metaPanels.metaPanel().each(function() {
-        this.clear();
+        metaPanel.clear();
     });
 };
 
@@ -212,7 +220,7 @@ DemodulatorPanel.prototype.collectParams = function() {
         squelch_level: -150,
         mod: 'nfm'
     }
-    return $.extend(new Object(), defaults, this.validateInitialParams(this.initialParams), this.transformHashParams(this.parseHash()));
+    return Object.assign({}, defaults, this.validateInitialParams(this.initialParams), this.transformHashParams(this.parseHash()));
 };
 
 DemodulatorPanel.prototype.startDemodulator = function() {
@@ -246,7 +254,7 @@ DemodulatorPanel.prototype._apply = function(params) {
 };
 
 DemodulatorPanel.prototype.setInitialParams = function(params) {
-    $.extend(this.initialParams, params);
+    Object.assign(this.initialParams, params);
 };
 
 DemodulatorPanel.prototype.resetInitialParams = function() {
@@ -281,30 +289,39 @@ DemodulatorPanel.prototype.squelchAvailable = function () {
 }
 
 DemodulatorPanel.prototype.updateButtons = function() {
-    var $buttons = this.el.find(".openwebrx-demodulator-button");
-    $buttons.removeClass("highlighted").removeClass('same-mod');
+    var root = this.root;
+    var buttons = this.root.querySelectorAll('.openwebrx-demodulator-button');
+    buttons.forEach(function(button) { button.classList.remove('highlighted', 'same-mod'); });
     var demod = this.getDemodulator()
     if (!demod) return;
-    this.el.find('[data-modulation=' + demod.get_modulation() + ']').addClass("highlighted");
+    var selectedMode = Array.from(this.root.querySelectorAll('[data-modulation]'))
+        .find(function(button) { return button.getAttribute('data-modulation') === demod.get_modulation(); });
+    if (selectedMode) selectedMode.classList.add('highlighted');
     var secondary_demod = demod.get_secondary_demod()
     if (secondary_demod) {
-        this.el.find(".openwebrx-button-dig").addClass("highlighted");
-        this.el.find('.openwebrx-secondary-demod-listbox').val(secondary_demod);
+        var digitalButton = this.root.querySelector('.openwebrx-button-dig');
+        var secondarySelect = this.root.querySelector('.openwebrx-secondary-demod-listbox');
+        if (digitalButton) digitalButton.classList.add('highlighted');
+        if (secondarySelect) secondarySelect.value = secondary_demod;
         var mode = Modes.findByModulation(secondary_demod);
         if (mode) {
-            var self = this;
             mode.underlying.filter(function(m) {
                 return m !== demod.get_modulation();
             }).forEach(function(m) {
-                self.el.find('[data-modulation=' + m + ']').addClass('same-mod')
+                var button = Array.from(root.querySelectorAll('[data-modulation]'))
+                    .find(function(candidate) { return candidate.getAttribute('data-modulation') === m; });
+                if (button) button.classList.add('same-mod');
             });
         }
     } else {
-        this.el.find('.openwebrx-secondary-demod-listbox').val('none');
+        var secondarySelect = this.root.querySelector('.openwebrx-secondary-demod-listbox');
+        if (secondarySelect) secondarySelect.value = 'none';
     }
     var squelch_disabled = !this.squelchAvailable();
-    this.el.find('.openwebrx-squelch-slider').prop('disabled', squelch_disabled);
-    this.el.find('.openwebrx-squelch-auto')[squelch_disabled ? 'addClass' : 'removeClass']('disabled');
+    var squelchSlider = this.root.querySelector('.openwebrx-squelch-slider');
+    var squelchAuto = this.root.querySelector('.openwebrx-squelch-auto');
+    if (squelchSlider) squelchSlider.disabled = squelch_disabled;
+    if (squelchAuto) squelchAuto.classList.toggle('disabled', squelch_disabled);
 }
 
 DemodulatorPanel.prototype.setCenterFrequency = function(center_freq) {
@@ -370,25 +387,23 @@ DemodulatorPanel.prototype.validateInitialParams = function(params) {
 DemodulatorPanel.prototype.updateHash = function() {
     var demod = this.getDemodulator();
     if (!demod) return;
-    var self = this;
-    window.location.hash = $.map({
-        freq: demod.get_offset_frequency() + self.center_freq,
+    var params = {
+        freq: demod.get_offset_frequency() + this.center_freq,
         mod: demod.get_modulation(),
         secondary_mod: demod.get_secondary_demod(),
         sql: demod.getSquelch(),
-        key: self.magic_key
-    }, function(value, key){
-        if (typeof(value) === 'undefined' || value === false || value === '')
-            return undefined;
-        else
-            return key + '=' + value;
-    }).filter(function(v) {
-        return !!v;
-    }).join(',');
+        key: this.magic_key
+    };
+    window.location.hash = Object.entries(params)
+        .filter(function(entry) {
+            return typeof entry[1] !== 'undefined' && entry[1] !== false && entry[1] !== '';
+        })
+        .map(function(entry) { return entry[0] + '=' + entry[1]; })
+        .join(',');
 };
 
 DemodulatorPanel.prototype.updateSquelch = function() {
-    var sliderValue = parseInt(this.el.find(".openwebrx-squelch-slider").val());
+    var sliderValue = parseInt(this.root.querySelector('.openwebrx-squelch-slider').value, 10);
     var demod = this.getDemodulator();
     if (demod) demod.setSquelch(sliderValue);
 };
@@ -411,9 +426,16 @@ DemodulatorPanel.prototype.setTuningPrecision = function(precision) {
     this.mouseFrequencyDisplay.setTuningPrecision(precision);
 };
 
-$.fn.demodulatorPanel = function(){
-    if (!this.data('panel')) {
-        this.data('panel', new DemodulatorPanel(this));
+var demodulatorPanels = new WeakMap();
+window.OpenWebRXDemodulatorPanel = {
+    create: function(element) {
+        if (element && element.jquery) element = element[0];
+        if (!element || !element.ownerDocument) {
+            throw new TypeError('Demodulator panel requires a DOM element');
+        }
+        if (!demodulatorPanels.has(element)) {
+            demodulatorPanels.set(element, new DemodulatorPanel(element));
+        }
+        return demodulatorPanels.get(element);
     }
-    return this.data('panel');
 };

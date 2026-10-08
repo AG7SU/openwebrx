@@ -16,7 +16,9 @@ from owrx.modes import Modes, DigitalMode
 from owrx.config import Config
 from owrx.waterfall import WaterfallOptions
 from owrx.websocket import Handler
-from queue import Queue, Full, Empty
+from owrx.client_queue import BoundedClientQueue, CLIENT_QUEUE_STOP as PoisonPill
+from owrx.receiver_health import receiver_health_event
+from owrx.decoder_events import decoder_error_events, secondary_decoder_events
 from abc import ABCMeta, abstractmethod
 import json
 import threading
@@ -27,24 +29,22 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-PoisonPill = object()
-
-
 class Client(Handler, metaclass=ABCMeta):
     def __init__(self, conn):
         self.conn = conn
-        self.multithreadingQueue = Queue(100)
+        self.multithreadingQueue = BoundedClientQueue()
+        outbound_queue = self.multithreadingQueue
 
         def mp_passthru():
             run = True
             while run:
                 try:
-                    data = self.multithreadingQueue.get()
+                    data = outbound_queue.get()
                     if data is PoisonPill:
                         run = False
                     else:
                         self.send(data)
-                    self.multithreadingQueue.task_done()
+                    outbound_queue.task_done()
                 except (EOFError, OSError, ValueError):
                     run = False
                 except Exception:
@@ -64,24 +64,13 @@ class Client(Handler, metaclass=ABCMeta):
 
     def close(self, error: bool = False):
         if self.multithreadingQueue is not None:
-            while True:
-                try:
-                    self.multithreadingQueue.get(block=False)
-                except Empty:
-                    break
-            try:
-                self.multithreadingQueue.put(PoisonPill, block=False)
-            except Full:
-                # this shouldn't happen, we just emptied the queue, but it's not worth risking the exception
-                logger.exception("impossible queue state: Full after Empty")
+            if not self.multithreadingQueue.clear_and_stop():
+                logger.exception("impossible queue state: full after clearing client queue")
         self.conn.close(socketError=error)
 
     def mp_send(self, data):
-        if self.multithreadingQueue is None:
-            return
-        try:
-            self.multithreadingQueue.put(data, block=False)
-        except Full:
+        outbound_queue = self.multithreadingQueue
+        if outbound_queue is not None and not outbound_queue.put(data):
             self.close(error=True)
 
     @abstractmethod
@@ -191,6 +180,7 @@ class OpenWebRxReceiverClient(OpenWebRxClient, SdrSourceEventClient):
 
         modes = Modes.getAvailableClientModes()
         self.write_modes(modes)
+        self.write_mode_capabilities(Modes.getClientModeCapabilities())
 
         self.configSubs.append(SdrService.getActiveSources().wire(self._onSdrDeviceChanges))
         self.configSubs.append(SdrService.getAvailableProfiles().wire(self._sendProfiles))
@@ -286,21 +276,27 @@ class OpenWebRxReceiverClient(OpenWebRxClient, SdrSourceEventClient):
         writeConfig(globalConfig.__dict__())
 
     def onStateChange(self, state: SdrSourceState):
+        state_name = state.value.lower()
+        severity = "warning" if state in (SdrSourceState.STOPPED, SdrSourceState.STOPPING) else "info"
+        self.write_receiver_health(state_name, severity)
         if state is SdrSourceState.RUNNING:
             self.handleSdrAvailable()
 
     def onFail(self):
         logger.warning('SDR device "%s" has failed, selecting new device', self.sdr.getName())
+        self.write_receiver_health("failed", "error", "SDR source failed")
         self.write_log_message('SDR device "{0}" has failed, selecting new device'.format(self.sdr.getName()))
         self.setSdr()
 
     def onDisable(self):
         logger.warning('SDR device "%s" was disabled, selecting new device', self.sdr.getName())
+        self.write_receiver_health("disabled", "warning", "SDR source was disabled")
         self.write_log_message('SDR device "{0}" was disabled, selecting new device'.format(self.sdr.getName()))
         self.setSdr()
 
     def onShutdown(self):
         logger.warning('SDR device "%s" is shutting down, selecting new device', self.sdr.getName())
+        self.write_receiver_health("shutting_down", "warning", "SDR source is shutting down")
         self.write_log_message('SDR device "{0}" is shutting down, selecting new device'.format(self.sdr.getName()))
         self.setSdr()
 
@@ -455,6 +451,7 @@ class OpenWebRxReceiverClient(OpenWebRxClient, SdrSourceEventClient):
         self.sdr.addSpectrumClient(self)
 
     def handleNoSdrsAvailable(self):
+        self.write_receiver_health("offline", "error", "No SDR devices available")
         self.write_sdr_error("No SDR Devices available")
 
     def close(self, error: bool = False):
@@ -517,8 +514,11 @@ class OpenWebRxReceiverClient(OpenWebRxClient, SdrSourceEventClient):
     def write_secondary_fft(self, data):
         self.send(bytes([0x03]) + data)
 
-    def write_secondary_demod(self, message):
-        self.send({"type": "secondary_demod", "value": message})
+    def write_secondary_demod(self, message, modulation=None):
+        # Keep the opaque legacy payload for existing decoder panels, while
+        # publishing a small versioned activity event for modern clients.
+        for event in secondary_decoder_events(message, modulation):
+            self.send(event)
 
     def write_secondary_dsp_config(self, cfg):
         self.send({"type": "secondary_config", "value": cfg})
@@ -550,8 +550,14 @@ class OpenWebRxReceiverClient(OpenWebRxClient, SdrSourceEventClient):
     def write_sdr_error(self, message):
         self.send({"type": "sdr_error", "value": message})
 
+    def write_receiver_health(self, state, severity="info", message=None):
+        self.send(receiver_health_event(self.sdr, state, severity, message))
+
     def write_demodulator_error(self, message):
-        self.send({"type": "demodulator_error", "value": message})
+        # New clients consume a bounded, versioned event. Keep the original
+        # string event for existing OpenWebRX clients during migration.
+        for event in decoder_error_events(message):
+            self.send(event)
 
     def write_backoff_message(self, reason):
         self.send({"type": "backoff", "reason": reason})
@@ -583,6 +589,9 @@ class OpenWebRxReceiverClient(OpenWebRxClient, SdrSourceEventClient):
             return res
 
         self.send({"type": "modes", "value": [to_json(m) for m in modes]})
+
+    def write_mode_capabilities(self, capabilities):
+        self.send({"type": "mode_capabilities", "value": capabilities})
 
 
 class MapConnection(OpenWebRxClient):

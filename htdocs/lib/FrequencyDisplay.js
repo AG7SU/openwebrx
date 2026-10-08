@@ -1,184 +1,160 @@
-function FrequencyDisplay(element) {
-    this.suffixes = {
-        '': 0,
-        'k': 3,
-        'M': 6,
-        'G': 9,
-        'T': 12
+(function(global) {
+    'use strict';
+
+    var displays = new WeakMap();
+    var suffixes = {'': 0, k: 3, M: 6, G: 9, T: 12};
+
+    function FrequencyDisplay(element, tuneable) {
+        if (element && element.jquery) element = element[0];
+        if (!element || !element.ownerDocument) throw new TypeError('Frequency display requires a DOM element');
+        this.element = element;
+        this.tuneable = tuneable;
+        this.precision = 2;
+        this.frequency = 0;
+        this.exponent = 0;
+        this.digits = [];
+        this.build();
+        if (tuneable) this.bindTuningEvents();
+        this.setFrequency(0);
+    }
+
+    FrequencyDisplay.prototype.build = function() {
+        var doc = this.element.ownerDocument;
+        this.displayContainer = doc.createElement('div');
+        this.digitContainer = doc.createElement('span');
+        this.unitContainer = doc.createElement('span');
+        this.unitContainer.textContent = ' Hz';
+        this.displayContainer.append(this.digitContainer, this.unitContainer);
+        this.element.replaceChildren(this.displayContainer);
+        if (!this.tuneable) return;
+
+        this.inputGroup = doc.createElement('div');
+        this.inputGroup.className = 'input-group';
+        this.inputGroup.style.display = 'none';
+        this.input = doc.createElement('input');
+        this.input.type = 'number';
+        this.input.step = 'any';
+        this.suffixInput = doc.createElement('select');
+        this.suffixInput.tabIndex = -1;
+        Object.keys(suffixes).forEach(function(suffix) {
+            var option = doc.createElement('option');
+            option.value = suffixes[suffix];
+            option.textContent = suffix + 'Hz';
+            this.suffixInput.append(option);
+        }, this);
+        this.inputGroup.append(this.input, this.suffixInput);
+        this.element.append(this.inputGroup);
     };
-    this.element = $(element);
-    this.digits = [];
-    this.precision = 2;
-    this.setupElements();
-    this.setFrequency(0);
-}
 
-FrequencyDisplay.prototype.setupElements = function() {
-    this.displayContainer = $('<div>');
-    this.digitContainer = $('<span>');
-    this.unitContainer = $('<span> Hz</span>');
-    this.displayContainer.html([this.digitContainer, this.unitContainer]);
-    this.element.html(this.displayContainer);
-};
-
-FrequencyDisplay.prototype.getSuffix = function() {
-    var me = this;
-    return Object.keys(me.suffixes).filter(function(key){
-        return me.suffixes[key] == me.exponent;
-    })[0] || "";
-};
-
-FrequencyDisplay.prototype.setFrequency = function(freq) {
-    this.frequency = freq;
-    if (this.frequency === 0 || Number.isNaN(this.frequency)) {
-        this.exponent = 0
-    } else {
-        this.exponent = Math.floor(Math.log10(this.frequency) / 3) * 3;
-    }
-
-    var digits = Math.max(0, this.exponent - this.precision);
-    var formatted = (freq / 10 ** this.exponent).toLocaleString(
-        undefined,
-        {maximumFractionDigits: digits, minimumFractionDigits: digits}
-    );
-    var children = this.digitContainer.children();
-    for (var i = 0; i < formatted.length; i++) {
-        if (!this.digits[i]) {
-            this.digits[i] = $('<span>');
-            var before = children[i];
-            if (before) {
-                $(before).after(this.digits[i]);
-            } else {
-                this.digitContainer.append(this.digits[i]);
-            }
-        }
-        this.digits[i][(isNaN(formatted[i]) ? 'remove' : 'add') + 'Class']('digit');
-        this.digits[i].text(formatted[i]);
-    }
-    while (this.digits.length > formatted.length) {
-        this.digits.pop().remove();
-    }
-    this.unitContainer.text(' ' + this.getSuffix() + 'Hz');
-};
-
-FrequencyDisplay.prototype.setTuningPrecision = function(precision) {
-    if (typeof(precision) == 'undefined') return;
-    this.precision = precision;
-    this.setFrequency(this.frequency);
-};
-
-function TuneableFrequencyDisplay(element) {
-    FrequencyDisplay.call(this, element);
-    this.setupEvents();
-}
-
-TuneableFrequencyDisplay.prototype = new FrequencyDisplay();
-
-TuneableFrequencyDisplay.prototype.setupElements = function() {
-    FrequencyDisplay.prototype.setupElements.call(this);
-    this.input = $('<input type="number" step="any">');
-    this.suffixInput = $('<select tabindex="-1">');
-    this.suffixInput.append($.map(this.suffixes, function(e, p) {
-        return $('<option value="' + e + '">' + p + 'Hz</option>');
-    }));
-    this.inputGroup = $('<div class="input-group">');
-    this.inputGroup.append([this.input, this.suffixInput]);
-    this.inputGroup.hide();
-    this.element.append(this.inputGroup);
-};
-
-TuneableFrequencyDisplay.prototype.setupEvents = function() {
-    var me = this;
-
-    me.displayContainer.on('wheel', function(e){
-        e.preventDefault();
-        e.stopPropagation();
-
-        var index = me.digitContainer.find('.digit').index(e.target);
-        if (index < 0) return;
-
-        var delta = 10 ** (Math.floor(Math.max(me.exponent, Math.log10(me.frequency))) - index);
-        if (e.originalEvent.deltaY > 0) delta *= -1;
-        var newFrequency = me.frequency + delta;
-
-        me.element.trigger('frequencychange', newFrequency);
-    });
-
-    var submit = function(){
-        var exponent = parseInt(me.suffixInput.val());
-        var freq = parseFloat(me.input.val()) * 10 ** exponent;
-        if (!isNaN(freq)) {
-            me.element.trigger('frequencychange', freq);
-        }
-        me.inputGroup.hide();
-        me.displayContainer.show();
+    FrequencyDisplay.prototype.getSuffix = function() {
+        return Object.keys(suffixes).find(function(key) { return suffixes[key] === this.exponent; }, this) || '';
     };
-    $inputs = $.merge($(), me.input);
-    $inputs = $.merge($inputs, me.suffixInput);
-    $('body').on('click', function(e) {
-        if (!me.input.is(':visible')) return;
-        if ($.contains(me.element[0], e.target)) return;
-        submit();
-    });
-    $inputs.on('blur', function(e){
-        if (!me.input.is(':visible')) return;
-        if ($inputs.toArray().indexOf(e.relatedTarget) >= 0) {
-            return;
-        }
-        submit();
-    });
-    me.input.on('keydown', function(e){
-        if (e.keyCode == 13) return submit();
-        if (e.keyCode == 27) {
-            me.inputGroup.hide();
-            me.displayContainer.show();
-            return;
-        }
-        var c = String.fromCharCode(e.which);
-        Object.entries(me.suffixes).forEach(function(e) {
-            if (e[0].toUpperCase() == c) {
-                me.suffixInput.val(e[1]);
-                return submit();
+
+    FrequencyDisplay.prototype.setFrequency = function(freq) {
+        this.frequency = Number(freq);
+        if (this.frequency === 0 || Number.isNaN(this.frequency)) this.exponent = 0;
+        else this.exponent = Math.floor(Math.log10(this.frequency) / 3) * 3;
+        var digits = Math.max(0, this.exponent - this.precision);
+        var formatted = (freq / 10 ** this.exponent).toLocaleString(undefined, {
+            maximumFractionDigits: digits, minimumFractionDigits: digits
+        });
+        this.digitContainer.replaceChildren();
+        this.digits = [];
+        Array.from(formatted).forEach(function(character) {
+            var node = this.element.ownerDocument.createElement('span');
+            if (!Number.isNaN(Number(character))) {
+                node.className = 'digit';
+                this.digits.push(node);
             }
-        })
-    });
-    var currentExponent;
-    me.suffixInput.on('change', function() {
-        var newExponent = me.suffixInput.val();
-        delta = currentExponent - newExponent;
-        if (delta >= 0) {
-            me.input.val(parseFloat(me.input.val()) * 10 ** delta);
-        } else {
-            // should not be necessary to handle this separately, but floating point precision in javascript
-            // does not handle this well otherwise
-            me.input.val(parseFloat(me.input.val()) / 10 ** -delta);
+            node.textContent = character;
+            this.digitContainer.append(node);
+        }, this);
+        this.unitContainer.textContent = ' ' + this.getSuffix() + 'Hz';
+    };
+
+    FrequencyDisplay.prototype.setTuningPrecision = function(precision) {
+        if (typeof precision === 'undefined') return;
+        this.precision = precision;
+        this.setFrequency(this.frequency);
+    };
+
+    FrequencyDisplay.prototype.emitFrequency = function(freq) {
+        this.element.dispatchEvent(new this.element.ownerDocument.defaultView.CustomEvent('frequencychange', {
+            bubbles: true, detail: freq
+        }));
+    };
+
+    FrequencyDisplay.prototype.bindTuningEvents = function() {
+        var self = this;
+        var inputs = [this.input, this.suffixInput];
+        var currentExponent = 0;
+        this.displayContainer.addEventListener('wheel', function(event) {
+            event.preventDefault();
+            event.stopPropagation();
+            var index = self.digits.indexOf(event.target);
+            if (index < 0) return;
+            var delta = 10 ** (Math.floor(Math.max(self.exponent, Math.log10(self.frequency))) - index);
+            if (event.deltaY > 0) delta *= -1;
+            self.emitFrequency(self.frequency + delta);
+        });
+        function submit() {
+            var exponent = parseInt(self.suffixInput.value, 10);
+            var freq = parseFloat(self.input.value) * 10 ** exponent;
+            if (!Number.isNaN(freq)) self.emitFrequency(freq);
+            self.inputGroup.style.display = 'none';
+            self.displayContainer.style.display = '';
         }
-        currentExponent = newExponent;
-        me.input.focus();
-    });
-    $inputs.on('click', function(e){
-        e.stopPropagation();
-    });
-    me.element.on('click', function(){
-        currentExponent = me.exponent;
-        me.input.val(me.frequency / 10 ** me.exponent);
-        me.suffixInput.val(me.exponent);
-        me.inputGroup.show();
-        me.displayContainer.hide();
-        me.input.focus();
-    });
-};
+        this.element.ownerDocument.body.addEventListener('click', function(event) {
+            if (self.inputGroup.style.display === 'none' || self.element.contains(event.target)) return;
+            submit();
+        });
+        inputs.forEach(function(input) {
+            input.addEventListener('blur', function(event) {
+                if (self.inputGroup.style.display === 'none' || inputs.includes(event.relatedTarget)) return;
+                submit();
+            });
+            input.addEventListener('click', function(event) { event.stopPropagation(); });
+        });
+        this.input.addEventListener('keydown', function(event) {
+            if (event.key === 'Enter') { submit(); return; }
+            if (event.key === 'Escape') {
+                self.inputGroup.style.display = 'none';
+                self.displayContainer.style.display = '';
+                return;
+            }
+            Object.keys(suffixes).forEach(function(suffix) {
+                if (suffix && suffix.toUpperCase() === event.key.toUpperCase()) {
+                    self.suffixInput.value = suffixes[suffix];
+                    submit();
+                }
+            });
+        });
+        this.suffixInput.addEventListener('change', function() {
+            var newExponent = parseInt(self.suffixInput.value, 10);
+            var delta = currentExponent - newExponent;
+            var value = parseFloat(self.input.value);
+            self.input.value = delta >= 0 ? value * 10 ** delta : value / 10 ** -delta;
+            currentExponent = newExponent;
+            self.input.focus();
+        });
+        this.displayContainer.addEventListener('click', function() {
+            currentExponent = self.exponent;
+            self.input.value = self.frequency / 10 ** self.exponent;
+            self.suffixInput.value = self.exponent;
+            self.inputGroup.style.display = '';
+            self.displayContainer.style.display = 'none';
+            self.input.focus();
+        });
+    };
 
-$.fn.frequencyDisplay = function() {
-    if (!this.data('frequencyDisplay')) {
-        this.data('frequencyDisplay', new FrequencyDisplay(this));
+    function create(element, tuneable) {
+        if (element && element.jquery) element = element[0];
+        if (!displays.has(element)) displays.set(element, new FrequencyDisplay(element, tuneable));
+        return displays.get(element);
     }
-    return this.data('frequencyDisplay');
-}
 
-$.fn.tuneableFrequencyDisplay = function() {
-    if (!this.data('frequencyDisplay')) {
-        this.data('frequencyDisplay', new TuneableFrequencyDisplay(this));
-    }
-    return this.data('frequencyDisplay');
-}
+    global.OpenWebRXFrequencyDisplay = {
+        create: function(element) { return create(element, false); },
+        createTuneable: function(element) { return create(element, true); }
+    };
+})(window);

@@ -1,195 +1,131 @@
-ProgressBar = function(el) {
-    this.$el = $(el);
-    this.$innerText = $('<span class="openwebrx-progressbar-text">' + this.getDefaultText() + '</span>');
-    this.$innerBar = $('<div class="openwebrx-progressbar-bar"></div>');
-    this.$el.empty().append(this.$innerText, this.$innerBar);
-};
+(function(global) {
+    'use strict';
 
-ProgressBar.prototype.getDefaultText = function() {
-    return '';
-}
+    var instances = new WeakMap();
 
-ProgressBar.prototype.set = function(val, text, over) {
-    this.setValue(val);
-    this.setText(text);
-    this.setOver(over);
-};
-
-ProgressBar.prototype.setValue = function(val) {
-    if (val < 0) val = 0;
-    if (val > 1) val = 1;
-    this.$innerBar.css({transform: 'translate(' + ((val - 1) * 100) + '%) translateZ(0)'});
-};
-
-ProgressBar.prototype.setText = function(text) {
-    this.$innerText.text(text);
-};
-
-ProgressBar.prototype.setOver = function(over) {
-    this.$el[over ? 'addClass' : 'removeClass']('openwebrx-progressbar--over');
-};
-
-AudioBufferProgressBar = function(el) {
-    ProgressBar.call(this, el);
-};
-
-AudioBufferProgressBar.prototype = new ProgressBar();
-
-AudioBufferProgressBar.prototype.getDefaultText = function() {
-    return 'Audio buffer [0 ms]';
-};
-
-AudioBufferProgressBar.prototype.setSampleRate = function(sampleRate) {
-    this.sampleRate = sampleRate;
-};
-
-AudioBufferProgressBar.prototype.setBuffersize = function(buffersize) {
-    var audio_buffer_value = buffersize / this.sampleRate;
-    var overrun = audio_buffer_value > audio_buffer_maximal_length_sec;
-    var underrun = audio_buffer_value === 0;
-    var text = "buffer";
-    if (overrun) {
-        text = "overrun";
+    function ProgressBar(element) {
+        if (!element || !element.ownerDocument) throw new TypeError('Progress bar requires a DOM element');
+        this.el = element;
+        this.innerText = element.ownerDocument.createElement('span');
+        this.innerText.className = 'openwebrx-progressbar-text';
+        this.innerBar = element.ownerDocument.createElement('div');
+        this.innerBar.className = 'openwebrx-progressbar-bar';
+        element.replaceChildren(this.innerText, this.innerBar);
+        this.setText(this.getDefaultText());
     }
-    if (underrun) {
-        text = "underrun";
+
+    ProgressBar.prototype.getDefaultText = function() { return ''; };
+    ProgressBar.prototype.set = function(value, text, over) {
+        this.setValue(value);
+        this.setText(text);
+        this.setOver(over);
+    };
+    ProgressBar.prototype.setValue = function(value) {
+        value = Number(value);
+        if (!Number.isFinite(value)) value = 0;
+        value = Math.max(0, Math.min(1, value));
+        var offset = Number(((value - 1) * 100).toFixed(4));
+        this.innerBar.style.transform = 'translate(' + offset + '%) translateZ(0)';
+    };
+    ProgressBar.prototype.setText = function(text) { this.innerText.textContent = text == null ? '' : String(text); };
+    ProgressBar.prototype.setOver = function(over) { this.el.classList.toggle('openwebrx-progressbar--over', !!over); };
+
+    function inherit(Constructor) {
+        Constructor.prototype = Object.create(ProgressBar.prototype);
+        Constructor.prototype.constructor = Constructor;
     }
-    this.set(audio_buffer_value, "Audio " + text + " [" + (audio_buffer_value).toFixed(1) + " s]", overrun || underrun);
-};
 
+    function AudioBufferProgressBar(element) { ProgressBar.call(this, element); }
+    inherit(AudioBufferProgressBar);
+    AudioBufferProgressBar.prototype.getDefaultText = function() { return 'Audio buffer [0 ms]'; };
+    AudioBufferProgressBar.prototype.setSampleRate = function(sampleRate) { this.sampleRate = sampleRate; };
+    AudioBufferProgressBar.prototype.setBuffersize = function(buffersize) {
+        var seconds = this.sampleRate > 0 ? buffersize / this.sampleRate : 0;
+        var overrun = seconds > audio_buffer_maximal_length_sec;
+        var underrun = seconds === 0;
+        var text = overrun ? 'overrun' : underrun ? 'underrun' : 'buffer';
+        this.set(seconds, 'Audio ' + text + ' [' + seconds.toFixed(1) + ' s]', overrun || underrun);
+    };
 
-NetworkSpeedProgressBar = function(el) {
-    ProgressBar.call(this, el);
-};
+    function NetworkSpeedProgressBar(element) { ProgressBar.call(this, element); }
+    inherit(NetworkSpeedProgressBar);
+    NetworkSpeedProgressBar.prototype.getDefaultText = function() { return 'Network usage [0 kbps]'; };
+    NetworkSpeedProgressBar.prototype.setSpeed = function(speed) {
+        var kilobits = speed * 8 / 1000;
+        this.set(kilobits / 2000, 'Network usage [' + kilobits.toFixed(1) + ' kbps]', false);
+    };
 
-NetworkSpeedProgressBar.prototype = new ProgressBar();
+    function AudioSpeedProgressBar(element) { ProgressBar.call(this, element); }
+    inherit(AudioSpeedProgressBar);
+    AudioSpeedProgressBar.prototype.getDefaultText = function() { return 'Audio stream [0 kbps]'; };
+    AudioSpeedProgressBar.prototype.setSpeed = function(speed) {
+        this.set(speed / 1000000, 'Audio stream [' + (speed / 1000).toFixed(0) + ' kbps]', false);
+    };
 
-NetworkSpeedProgressBar.prototype.getDefaultText = function() {
-    return 'Network usage [0 kbps]';
-};
+    function AudioOutputProgressBar(element) { ProgressBar.call(this, element); }
+    inherit(AudioOutputProgressBar);
+    AudioOutputProgressBar.prototype.getDefaultText = function() { return 'Audio output [0 sps]'; };
+    AudioOutputProgressBar.prototype.setSampleRate = function(sampleRate) {
+        this.maxRate = sampleRate * 1.25;
+        this.minRate = sampleRate * 0.25;
+    };
+    AudioOutputProgressBar.prototype.setAudioRate = function(audioRate) {
+        this.set(audioRate / this.maxRate, 'Audio output [' + (audioRate / 1000).toFixed(1) + ' ksps]',
+            audioRate > this.maxRate || audioRate < this.minRate);
+    };
 
-NetworkSpeedProgressBar.prototype.setSpeed = function(speed) {
-    var speedInKilobits = speed * 8 / 1000;
-    this.set(speedInKilobits / 2000, "Network usage [" + speedInKilobits.toFixed(1) + " kbps]", false);
-};
-
-AudioSpeedProgressBar = function(el) {
-    ProgressBar.call(this, el);
-};
-
-AudioSpeedProgressBar.prototype = new ProgressBar();
-
-AudioSpeedProgressBar.prototype.getDefaultText = function() {
-    return 'Audio stream [0 kbps]';
-};
-
-AudioSpeedProgressBar.prototype.setSpeed = function(speed) {
-    this.set(speed / 1000000, "Audio stream [" + (speed / 1000).toFixed(0) + " kbps]", false);
-};
-
-AudioOutputProgressBar = function(el, sampleRate) {
-    ProgressBar.call(this, el);
-};
-
-AudioOutputProgressBar.prototype = new ProgressBar();
-
-AudioOutputProgressBar.prototype.getDefaultText = function() {
-    return 'Audio output [0 sps]';
-};
-
-AudioOutputProgressBar.prototype.setSampleRate = function(sampleRate) {
-    this.maxRate = sampleRate * 1.25;
-    this.minRate = sampleRate * .25;
-};
-
-AudioOutputProgressBar.prototype.setAudioRate = function(audioRate) {
-    this.set(audioRate / this.maxRate, "Audio output [" + (audioRate / 1000).toFixed(1) + " ksps]", audioRate > this.maxRate || audioRate < this.minRate);
-};
-
-ClientsProgressBar = function(el) {
-    ProgressBar.call(this, el);
-    this.clients = 0;
-    this.maxClients = 0;
-};
-
-ClientsProgressBar.prototype = new ProgressBar();
-
-ClientsProgressBar.prototype.getDefaultText = function() {
-    return 'Clients [1]';
-};
-
-ClientsProgressBar.prototype.setClients = function(clients) {
-    this.clients = clients;
-    this.render();
-};
-
-ClientsProgressBar.prototype.setMaxClients = function(maxClients) {
-    this.maxClients = maxClients;
-    this.render();
-};
-
-ClientsProgressBar.prototype.render = function() {
-    this.set(this.clients / this.maxClients, "Clients [" + this.clients + "]", this.clients > this.maxClients * 0.85);
-};
-
-CpuProgressBar = function(el) {
-    ProgressBar.call(this, el);
-};
-
-CpuProgressBar.prototype = new ProgressBar();
-
-CpuProgressBar.prototype.getDefaultText = function() {
-    return 'Server CPU [0%]';
-};
-
-CpuProgressBar.prototype.setUsage = function(usage) {
-    const temp = this.temp? "/" + this.temp + "&deg;C" : "";
-    this.set(usage, "Server CPU [" + Math.round(usage * 100) + "%" + temp + "]", usage > .85);
-};
-
-CpuProgressBar.prototype.setTemp = function(temp) {
-    this.temp = temp;
-};
-
-BatteryProgressBar = function(el) {
-    ProgressBar.call(this, el);
-};
-
-BatteryProgressBar.prototype = new ProgressBar();
-
-BatteryProgressBar.prototype.getDefaultText = function() {
-    return 'Battery';
-};
-
-BatteryProgressBar.prototype.setBattery = function(battery) {
-    var voltage = battery.voltage || 0.0;
-    var current = battery.current || 0.0;
-    var charger = battery.charger? 'Charging' : 'Battery';
-    var charge  = battery.charge || 0;
-
-    current = current > 0? ('/' + current + 'A') : '';
-
-    this.set(
-        charge / 100.0,
-        charger + ' [' + charge + '%/' + voltage + 'V' + current + ']',
-        charge < 20
-    );
-};
-
-ProgressBar.types = {
-    cpu: CpuProgressBar,
-    battery: BatteryProgressBar,
-    audiobuffer: AudioBufferProgressBar,
-    audiospeed: AudioSpeedProgressBar,
-    audiooutput: AudioOutputProgressBar,
-    clients: ClientsProgressBar,
-    networkspeed: NetworkSpeedProgressBar
-}
-
-$.fn.progressbar = function() {
-    if (!this.data('progressbar')) {
-        var constructor = ProgressBar.types[this.data('type')] || ProgressBar;
-        this.data('progressbar', new constructor(this));
+    function ClientsProgressBar(element) {
+        ProgressBar.call(this, element);
+        this.clients = 0;
+        this.maxClients = 0;
     }
-    return this.data('progressbar');
-};
+    inherit(ClientsProgressBar);
+    ClientsProgressBar.prototype.getDefaultText = function() { return 'Clients [0]'; };
+    ClientsProgressBar.prototype.setClients = function(clients) { this.clients = clients; this.render(); };
+    ClientsProgressBar.prototype.setMaxClients = function(maxClients) { this.maxClients = maxClients; this.render(); };
+    ClientsProgressBar.prototype.render = function() {
+        var value = this.maxClients > 0 ? this.clients / this.maxClients : 0;
+        this.set(value, 'Clients [' + this.clients + ']', this.maxClients > 0 && this.clients > this.maxClients * 0.85);
+    };
+
+    function CpuProgressBar(element) { ProgressBar.call(this, element); }
+    inherit(CpuProgressBar);
+    CpuProgressBar.prototype.getDefaultText = function() { return 'Server CPU [0%]'; };
+    CpuProgressBar.prototype.setUsage = function(usage) {
+        var temp = this.temp ? '/' + this.temp + '°C' : '';
+        this.set(usage, 'Server CPU [' + Math.round(usage * 100) + '%' + temp + ']', usage > 0.85);
+    };
+    CpuProgressBar.prototype.setTemp = function(temp) { this.temp = temp; };
+
+    function BatteryProgressBar(element) { ProgressBar.call(this, element); }
+    inherit(BatteryProgressBar);
+    BatteryProgressBar.prototype.getDefaultText = function() { return 'Battery'; };
+    BatteryProgressBar.prototype.setBattery = function(battery) {
+        var voltage = battery.voltage || 0.0;
+        var current = battery.current > 0 ? '/' + battery.current + 'A' : '';
+        var charge = battery.charge || 0;
+        this.set(charge / 100.0, (battery.charger ? 'Charging' : 'Battery') + ' [' + charge + '%/' + voltage + 'V' + current + ']', charge < 20);
+    };
+
+    ProgressBar.types = {
+        cpu: CpuProgressBar,
+        battery: BatteryProgressBar,
+        audiobuffer: AudioBufferProgressBar,
+        audiospeed: AudioSpeedProgressBar,
+        audiooutput: AudioOutputProgressBar,
+        clients: ClientsProgressBar,
+        networkspeed: NetworkSpeedProgressBar
+    };
+
+    global.OpenWebRXProgressBar = {
+        create: function(element) {
+            if (typeof element === 'string') element = document.getElementById(element);
+            if (!element || !element.ownerDocument) throw new TypeError('Progress bar requires a DOM element');
+            if (!instances.has(element)) {
+                var Constructor = ProgressBar.types[element.getAttribute('data-type')] || ProgressBar;
+                instances.set(element, new Constructor(element));
+            }
+            return instances.get(element);
+        }
+    };
+})(window);
