@@ -597,33 +597,6 @@
         <span id="receiver-modern-mode-message" class="receiver-island__message" aria-live="polite">{modeMessage}</span>
     </form>
 
-    <details class="receiver-island__layouts">
-        <summary>Saved layouts <span>{savedLayouts.length}</span></summary>
-        <div class="receiver-island__layouts-panel">
-            <form class="receiver-island__layout-save" onsubmit={(event) => { event.preventDefault(); saveCurrentLayout(); }}>
-                <label for="receiver-modern-layout-name">SAVE CURRENT FREQUENCY + MODE</label>
-                <input id="receiver-modern-layout-name" bind:value={layoutName} maxlength="48" placeholder="Layout name" autocomplete="off" />
-                <button type="submit" class="receiver-island__apply">Save</button>
-            </form>
-            {#if savedLayouts.length}
-                <label class="receiver-island__layout-select-label" for="receiver-modern-layout-list">THIS RECEIVER PROFILE</label>
-                <div class="receiver-island__layout-actions">
-                    <select id="receiver-modern-layout-list" bind:value={selectedLayoutId}>
-                        <option value="">Choose a saved layout</option>
-                        {#each savedLayouts as layout (layout.id)}
-                            <option value={layout.id}>{layout.name} · {(layout.frequencyHz / 1_000_000).toFixed(6)} MHz · {layout.modulation}</option>
-                        {/each}
-                    </select>
-                    <button type="button" class="receiver-island__apply" onclick={applySavedLayout} disabled={!selectedLayoutId}>Apply</button>
-                    <button type="button" class="receiver-island__zoom" onclick={removeSavedLayout} disabled={!selectedLayoutId}>Remove</button>
-                </div>
-            {:else}
-                <p class="receiver-island__layout-empty">Save a frequency and mode combination for quick recall.</p>
-            {/if}
-            <span class="receiver-island__layout-message" aria-live="polite">{layoutMessage}</span>
-        </div>
-    </details>
-
     <form class="receiver-island__tuning" onsubmit={submitFrequency}>
         <button type="button" class="receiver-island__nudge" aria-label="Tune down one step" onclick={() => adjustFrequency(-1)}>−</button>
         <label class="receiver-island__frequency-label" for="receiver-modern-frequency">FREQUENCY · MHz</label>
@@ -645,16 +618,6 @@
         <button type="button" class="receiver-island__nudge" aria-label="Tune up one step" onclick={() => adjustFrequency(1)}>+</button>
         <span id="receiver-modern-tune-message" class="receiver-island__message" aria-live="polite">{tuneMessage}</span>
     </form>
-
-    <div class="receiver-island__waterfall-controls" aria-label="Waterfall controls">
-        <span class="receiver-island__waterfall-label">WATERFALL · ZOOM {snapshot.waterfallZoomLevel + 1}/{snapshot.waterfallZoomMaximum + 1}</span>
-        <button type="button" class="receiver-island__zoom" disabled={snapshot.waterfallZoomLevel === 0} onclick={() => changeWaterfallZoom('out')}>Zoom out</button>
-        <button type="button" class="receiver-island__zoom" disabled={snapshot.waterfallZoomLevel >= snapshot.waterfallZoomMaximum} onclick={() => changeWaterfallZoom('in')}>Zoom in</button>
-        <button type="button" class="receiver-island__zoom" onclick={() => changeWaterfallZoom('full')}>Full spectrum</button>
-        <button type="button" class="receiver-island__zoom" onclick={() => changeWaterfallRange('auto')}>Auto levels</button>
-        <button type="button" class="receiver-island__zoom" onclick={() => changeWaterfallRange('default')}>Reset range</button>
-        <span class="receiver-island__message" aria-live="polite">{waterfallMessage}</span>
-    </div>
 
     <div class="receiver-island__status" aria-label="Receiver status">
         <span class:receiver-island__status--active={snapshot.connection === 'connected'} class="receiver-island__status-item">
@@ -687,32 +650,15 @@
         <span class="receiver-island__status-step">STEP {snapshot.tuningStepHz.toLocaleString()} Hz</span>
     </div>
 
-    <details class="receiver-island__history">
-        <summary>Reception history · {receptionHistory.length}</summary>
-        <div class="receiver-island__history-tools">
-            <label for="receiver-modern-history-search">Search time, frequency, mode, source, or decoded content</label>
-            <input id="receiver-modern-history-search" type="search" bind:value={receptionSearch} autocomplete="off" />
-            <button type="button" onclick={clearReceptionHistory} disabled={receptionHistory.length === 0}>Clear history</button>
-            <span role="status" aria-live="polite">{receptionHistoryMessage}</span>
-        </div>
-        {#if filteredReceptionHistory.length}
-            <ol class="receiver-island__history-list">
-                {#each filteredReceptionHistory as entry, index (`${entry.timestampMs}:${index}`)}
-                    <li>
-                        <header>
-                            <time datetime={new Date(entry.timestampMs).toISOString()}>{new Date(entry.timestampMs).toLocaleString()}</time>
-                            <span>{entry.frequencyHz === null ? 'Frequency unknown' : `${(entry.frequencyHz / 1_000_000).toFixed(6)} MHz`}</span>
-                            <span>{entry.mode}</span>
-                            <span>{entry.profile}</span>
-                        </header>
-                        <pre>{entry.content}</pre>
-                    </li>
-                {/each}
-            </ol>
-        {:else}
-            <p>{receptionSearch ? 'No receptions match this search.' : 'Decoded receptions will appear here.'}</p>
-        {/if}
-    </details>
+    <div class="receiver-island__waterfall-controls" aria-label="Waterfall controls">
+        <span class="receiver-island__waterfall-label">WATERFALL · ZOOM {snapshot.waterfallZoomLevel + 1}/{snapshot.waterfallZoomMaximum + 1}</span>
+        <button type="button" class="receiver-island__zoom" disabled={snapshot.waterfallZoomLevel === 0} onclick={() => changeWaterfallZoom('out')}>Zoom out</button>
+        <button type="button" class="receiver-island__zoom" disabled={snapshot.waterfallZoomLevel >= snapshot.waterfallZoomMaximum} onclick={() => changeWaterfallZoom('in')}>Zoom in</button>
+        <button type="button" class="receiver-island__zoom" onclick={() => changeWaterfallZoom('full')}>Full spectrum</button>
+        <button type="button" class="receiver-island__zoom" onclick={() => changeWaterfallRange('auto')}>Auto levels</button>
+        <button type="button" class="receiver-island__zoom" onclick={() => changeWaterfallRange('default')}>Reset range</button>
+        <span class="receiver-island__message" aria-live="polite">{waterfallMessage}</span>
+    </div>
 
     {#if snapshot.mode.toLocaleLowerCase() === 'data2g'}
         <section class="receiver-island__data2g" aria-label="Data2G receive activity">
@@ -784,6 +730,60 @@
         <output for="receiver-modern-volume">{snapshot.volume}%</output>
         <span class="receiver-island__record-message" aria-live="polite">{recordingMessage}</span>
     </div>
+
+    <details class="receiver-island__layouts">
+        <summary>Saved layouts <span>{savedLayouts.length}</span></summary>
+        <div class="receiver-island__layouts-panel">
+            <form class="receiver-island__layout-save" onsubmit={(event) => { event.preventDefault(); saveCurrentLayout(); }}>
+                <label for="receiver-modern-layout-name">SAVE CURRENT FREQUENCY + MODE</label>
+                <input id="receiver-modern-layout-name" bind:value={layoutName} maxlength="48" placeholder="Layout name" autocomplete="off" />
+                <button type="submit" class="receiver-island__apply">Save</button>
+            </form>
+            {#if savedLayouts.length}
+                <label class="receiver-island__layout-select-label" for="receiver-modern-layout-list">THIS RECEIVER PROFILE</label>
+                <div class="receiver-island__layout-actions">
+                    <select id="receiver-modern-layout-list" bind:value={selectedLayoutId}>
+                        <option value="">Choose a saved layout</option>
+                        {#each savedLayouts as layout (layout.id)}
+                            <option value={layout.id}>{layout.name} · {(layout.frequencyHz / 1_000_000).toFixed(6)} MHz · {layout.modulation}</option>
+                        {/each}
+                    </select>
+                    <button type="button" class="receiver-island__apply" onclick={applySavedLayout} disabled={!selectedLayoutId}>Apply</button>
+                    <button type="button" class="receiver-island__zoom" onclick={removeSavedLayout} disabled={!selectedLayoutId}>Remove</button>
+                </div>
+            {:else}
+                <p class="receiver-island__layout-empty">Save a frequency and mode combination for quick recall.</p>
+            {/if}
+            <span class="receiver-island__layout-message" aria-live="polite">{layoutMessage}</span>
+        </div>
+    </details>
+
+    <details class="receiver-island__history">
+        <summary>Reception history · {receptionHistory.length}</summary>
+        <div class="receiver-island__history-tools">
+            <label for="receiver-modern-history-search">Search time, frequency, mode, source, or decoded content</label>
+            <input id="receiver-modern-history-search" type="search" bind:value={receptionSearch} autocomplete="off" />
+            <button type="button" onclick={clearReceptionHistory} disabled={receptionHistory.length === 0}>Clear history</button>
+            <span role="status" aria-live="polite">{receptionHistoryMessage}</span>
+        </div>
+        {#if filteredReceptionHistory.length}
+            <ol class="receiver-island__history-list">
+                {#each filteredReceptionHistory as entry, index (`${entry.timestampMs}:${index}`)}
+                    <li>
+                        <header>
+                            <time datetime={new Date(entry.timestampMs).toISOString()}>{new Date(entry.timestampMs).toLocaleString()}</time>
+                            <span>{entry.frequencyHz === null ? 'Frequency unknown' : `${(entry.frequencyHz / 1_000_000).toFixed(6)} MHz`}</span>
+                            <span>{entry.mode}</span>
+                            <span>{entry.profile}</span>
+                        </header>
+                        <pre>{entry.content}</pre>
+                    </li>
+                {/each}
+            </ol>
+        {:else}
+            <p>{receptionSearch ? 'No receptions match this search.' : 'Decoded receptions will appear here.'}</p>
+        {/if}
+    </details>
 </section>
 
 <style>

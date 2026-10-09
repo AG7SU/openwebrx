@@ -204,6 +204,11 @@ def is_local_admin_address(address):
         client = ipaddress.ip_address(address)
     except (TypeError, ValueError):
         return False
+    # Dual-stack sockets can report IPv4 peers as IPv4-mapped IPv6 addresses
+    # (for example, ::ffff:10.123.4.1). Treat them like their IPv4 address so
+    # the built-in private-network allowlist applies consistently.
+    if isinstance(client, ipaddress.IPv6Address) and client.ipv4_mapped is not None:
+        client = client.ipv4_mapped
     if any(client.version == network.version and client in network for network in _DEFAULT_ADMIN_NETWORKS):
         return True
     for value in os.environ.get("OWRX_ADMIN_NETWORKS", "").split(","):
