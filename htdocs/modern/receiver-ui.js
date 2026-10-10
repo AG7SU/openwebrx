@@ -158,7 +158,7 @@ function He() {
 	Ve = [], f(e);
 }
 function N(e) {
-	if (Ve.length === 0 && !ht) {
+	if (Ve.length === 0 && !mt) {
 		var t = Ve;
 		queueMicrotask(() => {
 			t === Ve && He();
@@ -346,7 +346,7 @@ function st(e) {
 }
 function ct(e) {
 	var t = st(e);
-	!e.equals(t) && (e.wv = Bn(), (!F?.is_fork || e.deps === null) && (F === null ? e.v = t : (F.capture(e, t, !0), ft?.capture(e, t, !0)), e.deps === null)) ? P(e, m) : Dn || (pt === null ? Ge(e) : (on() || F?.is_fork) && pt.set(e, t));
+	!e.equals(t) && (e.wv = Bn(), (!F?.is_fork || e.deps === null) && (F === null ? e.v = t : (F.capture(e, t, !0), ft?.capture(e, t, !0)), e.deps === null)) ? P(e, m) : Dn || (I === null ? Ge(e) : (on() || F?.is_fork) && I.set(e, t));
 }
 function lt(e) {
 	if (e.effects !== null) for (let t of e.effects) (t.teardown || t.ac) && (t.teardown?.(), t.ac !== null && Ye(() => {
@@ -358,8 +358,8 @@ function ut(e) {
 }
 //#endregion
 //#region node_modules/svelte/src/internal/client/reactivity/batch.js
-var dt = null, F = null, ft = null, pt = null, mt = null, ht = !1, gt = !1, _t = null, vt = null, yt = 0, bt = 1, xt = class e {
-	id = bt++;
+var dt = null, F = null, ft = null, I = null, pt = null, mt = !1, ht = !1, gt = null, _t = null, vt = 0, yt = 1, bt = class e {
+	id = yt++;
 	#e = !1;
 	linked = !0;
 	#t = null;
@@ -435,21 +435,21 @@ var dt = null, F = null, ft = null, pt = null, mt = null, ht = !1, gt = !1, _t =
 		for (let e of this.#u) this.#d.delete(e), P(e, h), this.schedule(e);
 		for (let e of this.#d) P(e, g), this.schedule(e);
 		this.apply();
-		for (var t = _t = [], n = [], r = vt = []; this.#c.length > 0;) {
-			yt++ > 1e3 && (this.#S(), Ct());
+		for (var t = gt = [], n = [], r = _t = []; this.#c.length > 0;) {
+			vt++ > 1e3 && (this.#S(), St());
 			for (let e of this.#g()) try {
 				this.#v(e, t, n);
 			} catch (t) {
-				throw Ot(e), this.#h() || this.discard(), t;
+				throw Dt(e), this.#h() || this.discard(), t;
 			}
 		}
 		if (F = null, r.length > 0) {
 			var i = e.ensure();
 			for (let e of r) i.schedule(e);
 		}
-		if (_t = null, vt = null, this.#h()) {
+		if (gt = null, _t = null, this.#h()) {
 			this.#x(n), this.#x(t);
-			for (let [e, t] of this.#f) Dt(e, t);
+			for (let [e, t] of this.#f) Et(e, t);
 			r.length > 0 && F.#_();
 			return;
 		}
@@ -458,7 +458,7 @@ var dt = null, F = null, ft = null, pt = null, mt = null, ht = !1, gt = !1, _t =
 		else {
 			this.#u.clear(), this.#d.clear();
 			for (let e of this.#r) e(this);
-			this.#r.clear(), ft = this, Tt(n), Tt(t), ft = null, this.#s?.resolve();
+			this.#r.clear(), ft = this, wt(n), wt(t), ft = null, this.#s?.resolve();
 			var o = F;
 			if (this.#a === 0 && (this.#c.length === 0 || o !== null) && this.#S(), this.#c.length > 0) {
 				if (o !== null) {
@@ -466,7 +466,7 @@ var dt = null, F = null, ft = null, pt = null, mt = null, ht = !1, gt = !1, _t =
 					this.#c = [];
 				} else o = this;
 			}
-			o !== null && (I.clear(), o.#_());
+			o !== null && (kt.clear(), o.#_());
 		}
 	}
 	#v(e, t, n) {
@@ -525,19 +525,19 @@ var dt = null, F = null, ft = null, pt = null, mt = null, ht = !1, gt = !1, _t =
 		for (var t = 0; t < e.length; t += 1) Ke(e[t], this.#u, this.#d);
 	}
 	capture(e, t, n = !1) {
-		e.v !== D && !this.previous.has(e) && this.previous.set(e, e.v), e.f & 8388608 || (this.current.set(e, [t, n]), pt?.set(e, t)), this.is_fork || (e.v = t);
+		e.v !== D && !this.previous.has(e) && this.previous.set(e, e.v), e.f & 8388608 || (this.current.set(e, [t, n]), I?.set(e, t)), this.is_fork || (e.v = t);
 	}
 	activate() {
 		F = this;
 	}
 	deactivate() {
-		F = null, pt = null;
+		F = null, I = null;
 	}
 	flush() {
 		try {
-			gt = !0, F = this, this.#_();
+			ht = !0, F = this, this.#_();
 		} finally {
-			yt = 0, mt = null, _t = null, vt = null, gt = !1, F = null, pt = null, I.clear();
+			vt = 0, pt = null, gt = null, _t = null, ht = !1, F = null, I = null, kt.clear();
 		}
 	}
 	discard() {
@@ -581,17 +581,17 @@ var dt = null, F = null, ft = null, pt = null, mt = null, ht = !1, gt = !1, _t =
 	static ensure() {
 		if (F === null) {
 			let t = F = new e();
-			!gt && !ht && N(() => {
+			!ht && !mt && N(() => {
 				t.#e || t.flush();
 			});
 		}
 		return F;
 	}
 	apply() {
-		pt = null;
+		I = null;
 	}
 	schedule(e) {
-		mt = e, e.b?.is_pending && e.f & 16777228 && !(e.f & 32768) ? e.b.defer_effect(e) : this.#c.push(e);
+		pt = e, e.b?.is_pending && e.f & 16777228 && !(e.f & 32768) ? e.b.defer_effect(e) : this.#c.push(e);
 	}
 	#S() {
 		if (this.linked) {
@@ -600,65 +600,65 @@ var dt = null, F = null, ft = null, pt = null, mt = null, ht = !1, gt = !1, _t =
 		}
 	}
 };
-function St(e) {
-	var t = ht, n = ft;
-	ft = null, ht = !0;
+function xt(e) {
+	var t = mt, n = ft;
+	ft = null, mt = !0;
 	try {
 		var r;
-		for (e && (St(), r = e());;) {
+		for (e && (xt(), r = e());;) {
 			if (Ue(), F === null) return r;
 			F.flush();
 		}
 	} finally {
-		ht = t, ft = n;
+		mt = t, ft = n;
 	}
 }
-function Ct() {
+function St() {
 	try {
 		je();
 	} catch (e) {
-		tn(e, mt);
+		tn(e, pt);
 	}
 }
-var wt = null;
-function Tt(e) {
+var Ct = null;
+function wt(e) {
 	var t = e.length;
 	if (t !== 0) {
 		for (var n = 0; n < t;) {
 			var r = e[n++];
-			if (!(r.f & 24576) && Vn(r) && (wt = /* @__PURE__ */ new Set(), qn(r), r.deps === null && r.first === null && r.nodes === null && r.teardown === null && r.ac === null && bn(r), wt?.size > 0)) {
-				I.clear();
-				for (let e of wt) {
+			if (!(r.f & 24576) && Vn(r) && (Ct = /* @__PURE__ */ new Set(), qn(r), r.deps === null && r.first === null && r.nodes === null && r.teardown === null && r.ac === null && bn(r), Ct?.size > 0)) {
+				kt.clear();
+				for (let e of Ct) {
 					if (e.f & 24576) continue;
 					let t = [e], n = e.parent;
-					for (; n !== null;) wt.has(n) && (wt.delete(n), t.push(n)), n = n.parent;
+					for (; n !== null;) Ct.has(n) && (Ct.delete(n), t.push(n)), n = n.parent;
 					for (let e = t.length - 1; e >= 0; e--) {
 						let n = t[e];
 						n.f & 24576 || qn(n);
 					}
 				}
-				wt.clear();
+				Ct.clear();
 			}
 		}
-		wt = null;
+		Ct = null;
 	}
 }
-function Et(e) {
+function Tt(e) {
 	F.schedule(e);
 }
-function Dt(e, t) {
+function Et(e, t) {
 	if (!(e.f & 32 && e.f & 1024)) {
 		e.f & 2048 ? t.d.push(e) : e.f & 4096 && t.m.push(e), P(e, m);
-		for (var n = e.first; n !== null;) Dt(n, t), n = n.next;
+		for (var n = e.first; n !== null;) Et(n, t), n = n.next;
 	}
 }
-function Ot(e) {
+function Dt(e) {
 	P(e, m);
-	for (var t = e.first; t !== null;) Ot(t), t = t.next;
+	for (var t = e.first; t !== null;) Dt(t), t = t.next;
 }
 //#endregion
 //#region node_modules/svelte/src/internal/client/reactivity/sources.js
-var kt = /* @__PURE__ */ new Set(), I = /* @__PURE__ */ new Map(), At = !1;
+var Ot = /* @__PURE__ */ new Set(), kt = /* @__PURE__ */ new Map(), At = !1;
 function jt(e, t) {
 	return {
 		f: 0,
@@ -680,24 +680,24 @@ function Mt(e, t = !1, n = !0) {
 	return t || (r.equals = we), r;
 }
 function R(e, t, n = !1) {
-	return G !== null && (!kn || G.f & 131072) && Be() && G.f & 4325394 && (Mn === null || !Mn.has(e)) && Pe(), Ft(e, n ? zt(t) : t, vt);
+	return G !== null && (!kn || G.f & 131072) && Be() && G.f & 4325394 && (Mn === null || !Mn.has(e)) && Pe(), Ft(e, n ? zt(t) : t, _t);
 }
 var Nt = null, Pt = 0;
 function Ft(e, t, n = null) {
 	if (!e.equals(t)) {
-		Dn ? I.set(e, t) : I.has(e) || I.set(e, e.v);
-		var r = xt.ensure();
+		Dn ? kt.set(e, t) : kt.has(e) || kt.set(e, e.v);
+		var r = bt.ensure();
 		if (r.capture(e, t), e.f & 2) {
 			let t = e;
-			e.f & 2048 && st(t), pt === null && Ge(t);
+			e.f & 2048 && st(t), I === null && Ge(t);
 		}
-		e.wv = Bn(), Nt = null, Pt = 0, Rt(e, h, n), Nt = null, Be() && K !== null && K.f & 1024 && !(K.f & 96) && (Pn === null ? Fn([e]) : Pn.push(e)), !r.is_fork && kt.size > 0 && !At && It();
+		e.wv = Bn(), Nt = null, Pt = 0, Rt(e, h, n), Nt = null, Be() && K !== null && K.f & 1024 && !(K.f & 96) && (Pn === null ? Fn([e]) : Pn.push(e)), !r.is_fork && Ot.size > 0 && !At && It();
 	}
 	return t;
 }
 function It() {
 	At = !1;
-	for (let e of kt) {
+	for (let e of Ot) {
 		e.f & 1024 && P(e, g);
 		let t;
 		try {
@@ -707,7 +707,7 @@ function It() {
 		}
 		t && qn(e);
 	}
-	kt.clear();
+	Ot.clear();
 }
 function Lt(e) {
 	R(e, e.v + 1);
@@ -724,13 +724,13 @@ function Rt(e, t, n) {
 			var s = r[o], c = s.f;
 			if (i || s !== K) {
 				var l = (c & h) === 0;
-				if (l && P(s, t), c & 131072) kt.add(s);
+				if (l && P(s, t), c & 131072) Ot.add(s);
 				else if (c & 2) {
 					var u = s;
-					pt?.delete(u), Rt(u, g, n);
+					I?.delete(u), Rt(u, g, n);
 				} else if (l) {
 					var d = s;
-					c & 16 && wt !== null && wt.add(d), n === null ? Et(d) : n.push(d);
+					c & 16 && Ct !== null && Ct.add(d), n === null ? Tt(d) : n.push(d);
 				}
 			}
 		}
@@ -970,7 +970,7 @@ function an(e, t) {
 	};
 	F?.register_created_effect(r);
 	var i = r;
-	if (e & 4) _t === null ? xt.ensure().schedule(r) : _t.push(r);
+	if (e & 4) gt === null ? bt.ensure().schedule(r) : gt.push(r);
 	else if (t !== null) {
 		try {
 			qn(r);
@@ -1004,7 +1004,7 @@ function ln(e) {
 	return an(4 | ee, e);
 }
 function un(e) {
-	xt.ensure();
+	bt.ensure();
 	let t = an(64 | S, e);
 	return (e = {}) => new Promise((n) => {
 		e.outro ? xn(t, () => {
@@ -1115,7 +1115,7 @@ function Cn(e) {
 }
 function wn(e, t) {
 	if (!(e.f & 256) && e.f & 8192) {
-		e.f ^= _, e.f & 1024 || (P(e, h), xt.ensure().schedule(e));
+		e.f ^= _, e.f & 1024 || (P(e, h), bt.ensure().schedule(e));
 		for (var n = e.first; n !== null;) {
 			var r = n.next, i = !!(n.f & 65536) || !!(n.f & 32);
 			wn(n, i ? t : !1), n = r;
@@ -1167,7 +1167,7 @@ function Vn(e) {
 			var a = n[i];
 			if (Vn(a) && ct(a), a.wv > e.wv) return !0;
 		}
-		t & 512 && pt === null && P(e, m);
+		t & 512 && I === null && P(e, m);
 	}
 	return !1;
 }
@@ -1175,7 +1175,7 @@ function Hn(e, t, n = !0) {
 	var r = e.reactions;
 	if (r !== null && !(Mn !== null && Mn.has(e))) for (var i = 0; i < r.length; i++) {
 		var a = r[i];
-		a.f & 2 ? Hn(a, t, !1) : t === a && (n ? P(a, h) : a.f & 1024 && P(a, g), Et(a));
+		a.f & 2 ? Hn(a, t, !1) : t === a && (n ? P(a, h) : a.f & 1024 && P(a, g), Tt(a));
 	}
 }
 function Un(e) {
@@ -1247,7 +1247,7 @@ function qn(e) {
 	}
 }
 async function Jn() {
-	await Promise.resolve(), St();
+	await Promise.resolve(), xt();
 }
 function Y(e) {
 	var t = !!(e.f & 2);
@@ -1260,17 +1260,17 @@ function Y(e) {
 			i === null ? e.reactions = [G] : n.call(i, G) || i.push(G);
 		}
 	}
-	if (Dn && I.has(e)) return I.get(e);
+	if (Dn && kt.has(e)) return kt.get(e);
 	if (t) {
 		var a = e;
 		if (Dn) {
 			var o = a.v;
-			return (!(a.f & 1024) && a.reactions !== null || Xn(a)) && (o = st(a)), I.set(a, o), o;
+			return (!(a.f & 1024) && a.reactions !== null || Xn(a)) && (o = st(a)), kt.set(a, o), o;
 		}
 		var s = !(a.f & 512) && !kn && G !== null && !!(G.f & 512), c = (a.f & y) === 0;
 		Vn(a) && (s && (a.f |= 512), ct(a)), s && !c && (ut(a), Yn(a));
 	}
-	if (pt?.has(e)) return pt.get(e);
+	if (I?.has(e)) return I.get(e);
 	if (e.f & 8388608) throw e.v;
 	return e.v;
 }
@@ -1283,7 +1283,7 @@ function Yn(e) {
 function Xn(e) {
 	if (e.v === D) return !0;
 	if (e.deps === null) return !1;
-	for (let t of e.deps) if (I.has(t) || t.f & 2 && Xn(t)) return !0;
+	for (let t of e.deps) if (kt.has(t) || t.f & 2 && Xn(t)) return !0;
 	return !1;
 }
 function Zn(e) {
@@ -1564,7 +1564,7 @@ var _r = class {
 		var t = K, n = G, r = M;
 		jn(this.#i), An(this.#i), Ie(this.#i.ctx);
 		try {
-			return xt.ensure(), e();
+			return bt.ensure(), e();
 		} finally {
 			jn(t), An(n), Ie(r);
 		}
@@ -2273,8 +2273,8 @@ function Ei(e, t) {
 }
 //#endregion
 //#region src/ReceiverIsland.svelte
-var Di = /* @__PURE__ */ Z("<button type=\"button\" class=\"receiver-island__bookmark svelte-apy39n\"> </button> <button type=\"button\" class=\"receiver-island__bookmark svelte-apy39n\">Open separate window</button>", 1), Oi = /* @__PURE__ */ Z("<option></option>"), ki = /* @__PURE__ */ Z("<span class=\"receiver-island__audio-warning svelte-apy39n\" role=\"status\"> </span>"), Ai = /* @__PURE__ */ Z("<span class=\"receiver-island__health-error svelte-apy39n\" role=\"status\"> </span>"), ji = /* @__PURE__ */ Z("<li class=\"svelte-apy39n\"><span> </span> <p class=\"svelte-apy39n\"> </p></li>"), Mi = /* @__PURE__ */ Z("<ol class=\"receiver-island__data2g-aprs svelte-apy39n\"></ol>"), Ni = /* @__PURE__ */ Z("<li class=\"svelte-apy39n\"><span> </span> <code class=\"svelte-apy39n\"> </code></li>"), Pi = /* @__PURE__ */ Z("<ol class=\"svelte-apy39n\"></ol>"), Fi = /* @__PURE__ */ Z("<p class=\"svelte-apy39n\">No complete Data2G frame received yet. Decoded frames appear here.</p>"), Ii = /* @__PURE__ */ Z("<li class=\"svelte-apy39n\"> </li>"), Li = /* @__PURE__ */ Z("<ol class=\"receiver-island__data2g-activity svelte-apy39n\" aria-label=\"Recent Data2G channel and burst activity\"></ol>"), Ri = /* @__PURE__ */ Z("<section class=\"receiver-island__data2g svelte-apy39n\" aria-label=\"Data2G receive activity\"><div class=\"receiver-island__data2g-heading svelte-apy39n\"><strong>DATA2G RECEIVE</strong> <span aria-live=\"polite\" class=\"svelte-apy39n\"> </span></div> <!> <!> <!></section>"), zi = /* @__PURE__ */ Z("<button type=\"button\" class=\"receiver-island__record svelte-apy39n\"> </button>"), Bi = /* @__PURE__ */ Z("<option> </option>"), Vi = /* @__PURE__ */ Z("<label class=\"receiver-island__layout-select-label svelte-apy39n\" for=\"receiver-modern-layout-list\">THIS RECEIVER PROFILE</label> <div class=\"receiver-island__layout-actions svelte-apy39n\"><select id=\"receiver-modern-layout-list\" class=\"svelte-apy39n\"><option>Choose a saved layout</option><!></select> <button type=\"button\" class=\"receiver-island__apply svelte-apy39n\">Apply</button> <button type=\"button\" class=\"receiver-island__zoom svelte-apy39n\">Remove</button></div>", 1), Hi = /* @__PURE__ */ Z("<p class=\"receiver-island__layout-empty svelte-apy39n\">Save a frequency and mode combination for quick recall.</p>"), Ui = /* @__PURE__ */ Z("<li class=\"svelte-apy39n\"><header class=\"svelte-apy39n\"><time> </time> <span> </span> <span> </span> <span> </span></header> <pre class=\"svelte-apy39n\"> </pre></li>"), Wi = /* @__PURE__ */ Z("<ol class=\"receiver-island__history-list svelte-apy39n\"></ol>"), Gi = /* @__PURE__ */ Z("<p class=\"svelte-apy39n\"> </p>"), Ki = /* @__PURE__ */ Z("<section class=\"receiver-island svelte-apy39n\" aria-label=\"Receiver tuning and status\"><div class=\"receiver-island__identity svelte-apy39n\"><span class=\"receiver-island__eyebrow svelte-apy39n\"> </span> <span class=\"receiver-island__mode svelte-apy39n\"> </span> <button type=\"button\" class=\"receiver-island__bookmark svelte-apy39n\">Save bookmark</button> <!> <button type=\"button\" class=\"receiver-island__advanced-toggle\" aria-controls=\"openwebrx-panel-receiver\"> </button> <span class=\"receiver-island__message svelte-apy39n\" aria-live=\"polite\"> </span></div> <form class=\"receiver-island__mode-picker svelte-apy39n\" aria-label=\"Select receiver mode\"><label for=\"receiver-modern-mode\">MODE</label> <input id=\"receiver-modern-mode\" type=\"search\" list=\"receiver-modern-mode-options\" aria-describedby=\"receiver-modern-mode-message\" autocomplete=\"off\" placeholder=\"Search modes\" class=\"svelte-apy39n\"/> <datalist id=\"receiver-modern-mode-options\"><!></datalist> <button type=\"submit\" class=\"receiver-island__apply svelte-apy39n\">Set mode</button> <span id=\"receiver-modern-mode-message\" class=\"receiver-island__message svelte-apy39n\" aria-live=\"polite\"> </span></form> <form class=\"receiver-island__tuning svelte-apy39n\"><button type=\"button\" class=\"receiver-island__nudge svelte-apy39n\" aria-label=\"Tune down one step\">−</button> <label class=\"receiver-island__frequency-label svelte-apy39n\" for=\"receiver-modern-frequency\">FREQUENCY · MHz</label> <input id=\"receiver-modern-frequency\" class=\"receiver-island__frequency svelte-apy39n\" type=\"number\" inputmode=\"decimal\" min=\"0.001\" step=\"0.000001\" aria-describedby=\"receiver-modern-tune-message\" aria-label=\"Tune frequency in megahertz\"/> <button type=\"submit\" class=\"receiver-island__apply svelte-apy39n\">Tune</button> <button type=\"button\" class=\"receiver-island__nudge svelte-apy39n\" aria-label=\"Tune up one step\">+</button> <span id=\"receiver-modern-tune-message\" class=\"receiver-island__message svelte-apy39n\" aria-live=\"polite\"> </span></form> <div class=\"receiver-island__status svelte-apy39n\" aria-label=\"Receiver status\"><span><i aria-hidden=\"true\" class=\"svelte-apy39n\"></i> </span> <span><i aria-hidden=\"true\" class=\"svelte-apy39n\"></i> </span> <span><i aria-hidden=\"true\" class=\"svelte-apy39n\"></i> </span> <!> <!> <span><i aria-hidden=\"true\" class=\"svelte-apy39n\"></i> </span> <span class=\"receiver-island__status-step svelte-apy39n\"> </span></div> <div class=\"receiver-island__waterfall-controls svelte-apy39n\" aria-label=\"Waterfall controls\"><span class=\"receiver-island__waterfall-label svelte-apy39n\"> </span> <button type=\"button\" class=\"receiver-island__zoom svelte-apy39n\">Zoom out</button> <button type=\"button\" class=\"receiver-island__zoom svelte-apy39n\">Zoom in</button> <button type=\"button\" class=\"receiver-island__zoom svelte-apy39n\">Full spectrum</button> <button type=\"button\" class=\"receiver-island__zoom svelte-apy39n\">Auto levels</button> <button type=\"button\" class=\"receiver-island__zoom svelte-apy39n\">Reset range</button> <span class=\"receiver-island__message svelte-apy39n\" aria-live=\"polite\"> </span></div> <!> <div class=\"receiver-island__audio svelte-apy39n\" aria-label=\"Audio controls\"><button type=\"button\" class=\"receiver-island__mute svelte-apy39n\"> </button> <!> <label for=\"receiver-modern-volume\">VOLUME</label> <input id=\"receiver-modern-volume\" type=\"range\" min=\"0\" max=\"150\" step=\"1\" aria-label=\"Audio volume\" class=\"svelte-apy39n\"/> <output for=\"receiver-modern-volume\" class=\"svelte-apy39n\"> </output> <span class=\"receiver-island__record-message svelte-apy39n\" aria-live=\"polite\"> </span></div> <details class=\"receiver-island__layouts svelte-apy39n\"><summary class=\"svelte-apy39n\">Saved layouts <span class=\"svelte-apy39n\"> </span></summary> <div class=\"receiver-island__layouts-panel svelte-apy39n\"><form class=\"receiver-island__layout-save svelte-apy39n\"><label for=\"receiver-modern-layout-name\" class=\"svelte-apy39n\">SAVE CURRENT FREQUENCY + MODE</label> <input id=\"receiver-modern-layout-name\" maxlength=\"48\" placeholder=\"Layout name\" autocomplete=\"off\" class=\"svelte-apy39n\"/> <button type=\"submit\" class=\"receiver-island__apply svelte-apy39n\">Save</button></form> <!> <span class=\"receiver-island__layout-message svelte-apy39n\" aria-live=\"polite\"> </span></div></details> <details class=\"receiver-island__history svelte-apy39n\"><summary class=\"svelte-apy39n\"> </summary> <div class=\"receiver-island__history-tools svelte-apy39n\"><label for=\"receiver-modern-history-search\" class=\"svelte-apy39n\">Search time, frequency, mode, source, or decoded content</label> <input id=\"receiver-modern-history-search\" type=\"search\" autocomplete=\"off\" class=\"svelte-apy39n\"/> <button type=\"button\" class=\"svelte-apy39n\">Clear history</button> <span role=\"status\" aria-live=\"polite\" class=\"svelte-apy39n\"> </span></div> <!></details></section>");
-function qi(e, t) {
+var Di = /* @__PURE__ */ Z("<button type=\"button\" class=\"receiver-island__bookmark svelte-apy39n\"> </button> <button type=\"button\" class=\"receiver-island__bookmark svelte-apy39n\">Open separate window</button>", 1), Oi = /* @__PURE__ */ Z("<option> </option>"), ki = /* @__PURE__ */ Z("<button type=\"button\" class=\"receiver-island__record svelte-apy39n\"> </button>"), Ai = /* @__PURE__ */ Z("<span class=\"receiver-island__audio-warning svelte-apy39n\" role=\"status\"> </span>"), ji = /* @__PURE__ */ Z("<span class=\"receiver-island__health-error svelte-apy39n\" role=\"status\"> </span>"), Mi = /* @__PURE__ */ Z("<li class=\"svelte-apy39n\"><span> </span> <p class=\"svelte-apy39n\"> </p></li>"), Ni = /* @__PURE__ */ Z("<ol class=\"receiver-island__data2g-aprs svelte-apy39n\"></ol>"), Pi = /* @__PURE__ */ Z("<li class=\"svelte-apy39n\"><span> </span> <code class=\"svelte-apy39n\"> </code></li>"), Fi = /* @__PURE__ */ Z("<ol class=\"svelte-apy39n\"></ol>"), Ii = /* @__PURE__ */ Z("<p class=\"svelte-apy39n\">No complete Data2G frame received yet. Decoded frames appear here.</p>"), Li = /* @__PURE__ */ Z("<li class=\"svelte-apy39n\"> </li>"), Ri = /* @__PURE__ */ Z("<ol class=\"receiver-island__data2g-activity svelte-apy39n\" aria-label=\"Recent Data2G channel and burst activity\"></ol>"), zi = /* @__PURE__ */ Z("<section class=\"receiver-island__data2g svelte-apy39n\" aria-label=\"Data2G receive activity\"><div class=\"receiver-island__data2g-heading svelte-apy39n\"><strong>DATA2G RECEIVE</strong> <span aria-live=\"polite\" class=\"svelte-apy39n\"> </span></div> <!> <!> <!></section>"), Bi = /* @__PURE__ */ Z("<label class=\"receiver-island__layout-select-label svelte-apy39n\" for=\"receiver-modern-layout-list\">THIS RECEIVER PROFILE</label> <div class=\"receiver-island__layout-actions svelte-apy39n\"><select id=\"receiver-modern-layout-list\" class=\"svelte-apy39n\"><option>Choose a saved layout</option><!></select> <button type=\"button\" class=\"receiver-island__apply svelte-apy39n\">Apply</button> <button type=\"button\" class=\"receiver-island__zoom svelte-apy39n\">Remove</button></div>", 1), Vi = /* @__PURE__ */ Z("<p class=\"receiver-island__layout-empty svelte-apy39n\">Save a frequency and mode combination for quick recall.</p>"), Hi = /* @__PURE__ */ Z("<li class=\"svelte-apy39n\"><header class=\"svelte-apy39n\"><time> </time> <span> </span> <span> </span> <span> </span></header> <pre class=\"svelte-apy39n\"> </pre></li>"), Ui = /* @__PURE__ */ Z("<ol class=\"receiver-island__history-list svelte-apy39n\"></ol>"), Wi = /* @__PURE__ */ Z("<p class=\"svelte-apy39n\"> </p>"), Gi = /* @__PURE__ */ Z("<section class=\"receiver-island svelte-apy39n\" aria-label=\"Receiver tuning and status\"><header class=\"receiver-island__identity svelte-apy39n\"><div class=\"receiver-island__receiver-name svelte-apy39n\"><span class=\"receiver-island__eyebrow svelte-apy39n\">OPENWEBRX+</span> <span class=\"receiver-island__profile svelte-apy39n\"> </span></div> <div class=\"receiver-island__header-actions svelte-apy39n\"><button type=\"button\" class=\"receiver-island__bookmark svelte-apy39n\">Save station</button> <!> <button type=\"button\" class=\"receiver-island__advanced-toggle svelte-apy39n\" aria-controls=\"openwebrx-panel-receiver\"> </button></div> <span class=\"receiver-island__header-message svelte-apy39n\" aria-live=\"polite\"> </span></header> <div class=\"receiver-island__listening-bar svelte-apy39n\"><form class=\"receiver-island__tuning svelte-apy39n\"><button type=\"button\" class=\"receiver-island__nudge svelte-apy39n\" aria-label=\"Tune down one step\">−</button> <label class=\"receiver-island__frequency-label svelte-apy39n\" for=\"receiver-modern-frequency\">FREQUENCY · MHz</label> <input id=\"receiver-modern-frequency\" class=\"receiver-island__frequency svelte-apy39n\" type=\"number\" inputmode=\"decimal\" min=\"0.001\" step=\"0.000001\" aria-describedby=\"receiver-modern-tune-message\" aria-label=\"Tune frequency in megahertz\"/> <button type=\"submit\" class=\"receiver-island__apply svelte-apy39n\">Tune</button> <button type=\"button\" class=\"receiver-island__nudge svelte-apy39n\" aria-label=\"Tune up one step\">+</button> <span class=\"receiver-island__step svelte-apy39n\"> </span> <span id=\"receiver-modern-tune-message\" class=\"receiver-island__message svelte-apy39n\" aria-live=\"polite\"> </span></form> <form class=\"receiver-island__mode-picker svelte-apy39n\" aria-label=\"Select receiver mode\"><label for=\"receiver-modern-mode\">MODE</label> <select id=\"receiver-modern-mode\" aria-describedby=\"receiver-modern-mode-message\" class=\"svelte-apy39n\"><!></select> <button type=\"submit\" class=\"receiver-island__apply svelte-apy39n\">Apply</button> <span id=\"receiver-modern-mode-message\" class=\"receiver-island__message svelte-apy39n\" aria-live=\"polite\"> </span></form> <div class=\"receiver-island__audio svelte-apy39n\" aria-label=\"Audio controls\"><button type=\"button\" class=\"receiver-island__mute svelte-apy39n\"> </button> <!> <label for=\"receiver-modern-volume\">VOLUME</label> <input id=\"receiver-modern-volume\" type=\"range\" min=\"0\" max=\"150\" step=\"1\" aria-label=\"Audio volume\" class=\"svelte-apy39n\"/> <output for=\"receiver-modern-volume\" class=\"svelte-apy39n\"> </output> <span class=\"receiver-island__record-message svelte-apy39n\" aria-live=\"polite\"> </span></div></div> <div class=\"receiver-island__status svelte-apy39n\" aria-label=\"Receiver status\"><span><i aria-hidden=\"true\" class=\"svelte-apy39n\"></i> </span> <span><i aria-hidden=\"true\" class=\"svelte-apy39n\"></i> </span> <span><i aria-hidden=\"true\" class=\"svelte-apy39n\"></i> </span> <!> <!> <span><i aria-hidden=\"true\" class=\"svelte-apy39n\"></i> </span> <span class=\"receiver-island__status-step svelte-apy39n\"> </span></div> <div class=\"receiver-island__waterfall-controls svelte-apy39n\" aria-label=\"Waterfall controls\"><span class=\"receiver-island__waterfall-label svelte-apy39n\"> </span> <button type=\"button\" class=\"receiver-island__zoom svelte-apy39n\">Zoom out</button> <button type=\"button\" class=\"receiver-island__zoom svelte-apy39n\">Zoom in</button> <button type=\"button\" class=\"receiver-island__zoom svelte-apy39n\">Full spectrum</button> <button type=\"button\" class=\"receiver-island__zoom svelte-apy39n\">Auto levels</button> <button type=\"button\" class=\"receiver-island__zoom svelte-apy39n\">Reset range</button> <span class=\"receiver-island__message svelte-apy39n\" aria-live=\"polite\"> </span></div> <!> <details class=\"receiver-island__layouts svelte-apy39n\"><summary class=\"svelte-apy39n\">Saved layouts <span class=\"svelte-apy39n\"> </span></summary> <div class=\"receiver-island__layouts-panel svelte-apy39n\"><form class=\"receiver-island__layout-save svelte-apy39n\"><label for=\"receiver-modern-layout-name\" class=\"svelte-apy39n\">SAVE CURRENT FREQUENCY + MODE</label> <input id=\"receiver-modern-layout-name\" maxlength=\"48\" placeholder=\"Layout name\" autocomplete=\"off\" class=\"svelte-apy39n\"/> <button type=\"submit\" class=\"receiver-island__apply svelte-apy39n\">Save</button></form> <!> <span class=\"receiver-island__layout-message svelte-apy39n\" aria-live=\"polite\"> </span></div></details> <details class=\"receiver-island__history svelte-apy39n\"><summary class=\"svelte-apy39n\"> </summary> <div class=\"receiver-island__history-tools svelte-apy39n\"><label for=\"receiver-modern-history-search\" class=\"svelte-apy39n\">Search time, frequency, mode, source, or decoded content</label> <input id=\"receiver-modern-history-search\" type=\"search\" autocomplete=\"off\" class=\"svelte-apy39n\"/> <button type=\"button\" class=\"svelte-apy39n\">Clear history</button> <span role=\"status\" aria-live=\"polite\" class=\"svelte-apy39n\"> </span></div> <!></details></section>");
+function Ki(e, t) {
 	Le(t, !0);
 	let n = "openwebrx.reception-history.v1", r = 864e13, i = /* @__PURE__ */ L(zt({
 		profileName: "Live receiver",
@@ -2556,99 +2556,107 @@ function qi(e, t) {
 		return `Unavailable: requires ${e.map(we).join(", ")}`;
 	}
 	function Ee(e) {
-		let t = e.currentTarget;
-		if (!(t instanceof HTMLInputElement)) return;
-		R(o, t.value, !0);
-		let n = t.value.trim().toLocaleLowerCase(), r = Y(i).modeCapabilities.find((e) => !e.available && (e.name.toLocaleLowerCase() === n || e.modulation.toLocaleLowerCase() === n));
-		R(u, r ? Te(r.missing_requirements) : "", !0);
-	}
-	function De(e) {
 		e.preventDefault();
 		let t = Y(o).trim().toLocaleLowerCase(), n = Y(i).availableModes.find((e) => e.name.toLocaleLowerCase() === t || e.modulation.toLocaleLowerCase() === t), r = Y(i).modeCapabilities.find((e) => !e.available && (e.name.toLocaleLowerCase() === t || e.modulation.toLocaleLowerCase() === t));
 		r ? R(u, Te(r.missing_requirements), !0) : !n || !mi(n.modulation) ? R(u, "Choose an available receiver mode") : (R(u, ""), R(c, !1), R(o, n.name, !0), R(i, si(), !0));
 	}
-	var Oe = Ki(), ke = B(Oe), Ae = B(ke), je = V(Ae), Me = H(Ae, 2), Ne = V(Me, !0), Pe = H(Me, 2), Fe = H(Pe, 2), M = (e) => {
+	var De = Gi(), Oe = B(De), ke = B(Oe), Ae = V(H(B(ke), 2), !0);
+	j(ke);
+	var je = H(ke, 2), Me = B(je), Ne = H(Me, 2), Pe = (e) => {
 		var t = Di(), n = Yt(t), r = V(n, !0), i = H(n, 2);
 		U(() => {
 			Yr(n, "aria-pressed", Y(g)), $(r, Y(g) ? "Close second tuner" : "Dual tuner view");
 		}), X("click", n, Ce), X("click", i, Se), Q(e, t);
 	};
-	Cr(Fe, (e) => {
-		Y(v) || e(M);
+	Cr(Ne, (e) => {
+		Y(v) || e(Pe);
 	});
-	var Ie = H(Fe, 2), ze = V(Ie, !0), Be = V(H(Ie, 2), !0);
-	j(ke);
-	var Ve = H(ke, 2), He = H(B(Ve), 2);
+	var Fe = H(Ne, 2), M = V(Fe, !0);
+	j(je);
+	var Ie = V(H(je, 2), !0);
+	j(Oe);
+	var ze = H(Oe, 2), Be = B(ze), Ve = B(Be), He = H(Ve, 4);
 	qr(He);
-	var N = H(He, 2), Ue = B(N), We = (e) => {
+	var N = H(He, 4), Ue = H(N, 2), We = V(Ue), P = V(H(Ue, 2), !0);
+	j(Be);
+	var Ge = H(Be, 2), Ke = H(B(Ge), 2), qe = B(Ke), Je = (e) => {
 		var t = pr();
 		Dr(Yt(t), 17, () => Y(i).modeCapabilities, (e) => e.modulation, (e, t) => {
-			var n = Oi(), r = {};
+			var n = Oi(), r = V(n), i = {};
 			U((e) => {
-				Yr(n, "label", e), r !== (r = Y(t).name) && (n.value = (n.__value = r) ?? "");
-			}, [() => Y(t).available ? Y(t).type === "digimode" ? "Digital decoder" : "Analog demodulator" : Te(Y(t).missing_requirements)]), Q(e, n);
+				n.disabled = !Y(t).available, $(r, `${Y(t).name ?? ""}${e ?? ""}`), i !== (i = Y(t).name) && (n.value = (n.__value = i) ?? "");
+			}, [() => Y(t).available ? "" : ` · ${Te(Y(t).missing_requirements)}`]), Q(e, n);
 		}), Q(e, t);
-	}, P = (e) => {
+	}, Ye = (e) => {
 		var t = pr();
 		Dr(Yt(t), 17, () => Y(i).availableModes, (e) => e.modulation, (e, t) => {
-			var n = Oi(), r = {};
+			var n = Oi(), r = V(n, !0), i = {};
 			U(() => {
-				Yr(n, "label", Y(t).type === "digimode" ? "Digital decoder" : "Analog demodulator"), r !== (r = Y(t).name) && (n.value = (n.__value = r) ?? "");
+				$(r, Y(t).name), i !== (i = Y(t).name) && (n.value = (n.__value = i) ?? "");
 			}), Q(e, n);
 		}), Q(e, t);
 	};
-	Cr(Ue, (e) => {
-		Y(i).modeCapabilities.length ? e(We) : e(P, -1);
-	}), j(N);
-	var Ge = V(H(N, 4), !0);
-	j(Ve);
-	var Ke = H(Ve, 2), qe = B(Ke), Je = H(qe, 4);
-	qr(Je);
-	var Ye = H(Je, 4), Xe = V(H(Ye, 2), !0);
-	j(Ke);
-	var Ze = H(Ke, 2), Qe = B(Ze);
-	let $e;
-	var et = H(B(Qe), 1, !0);
-	j(Qe);
-	var tt = H(Qe, 2);
-	let nt;
-	var rt = H(B(tt));
-	j(tt);
-	var at = H(tt, 2);
-	let ot;
-	var st = H(B(at), 1, !0);
-	j(at);
-	var ct = H(at, 2), lt = (e) => {
-		var t = ki(), n = V(t);
+	Cr(qe, (e) => {
+		Y(i).modeCapabilities.length ? e(Je) : e(Ye, -1);
+	}), j(Ke), zr(Ke);
+	var Xe = V(H(Ke, 4), !0);
+	j(Ge);
+	var Ze = H(Ge, 2), Qe = B(Ze), $e = V(Qe, !0), et = H(Qe, 2), tt = (e) => {
+		var t = ki(), n = V(t, !0);
+		U(() => {
+			Yr(t, "aria-pressed", Y(i).recording), t.disabled = !Y(i).recording && Y(i).audio !== "playing", $(n, Y(i).recording ? "Stop recording" : "Record");
+		}), X("click", t, O), Q(e, t);
+	};
+	Cr(et, (e) => {
+		(Y(i).recordingAllowed || Y(i).recording) && e(tt);
+	});
+	var nt = H(et, 4);
+	qr(nt);
+	var rt = H(nt, 2), at = V(rt), ot = V(H(rt, 2), !0);
+	j(Ze), j(ze);
+	var st = H(ze, 2), ct = B(st);
+	let lt;
+	var ut = H(B(ct), 1, !0);
+	j(ct);
+	var dt = H(ct, 2);
+	let F;
+	var ft = H(B(dt));
+	j(dt);
+	var I = H(dt, 2);
+	let pt;
+	var mt = H(B(I), 1, !0);
+	j(I);
+	var ht = H(I, 2), gt = (e) => {
+		var t = Ai(), n = V(t);
 		U((e) => $(n, `Audio buffer dropped ${e ?? ""} samples`), [() => Y(i).audioDroppedSamples.toLocaleString()]), Q(e, t);
 	};
-	Cr(ct, (e) => {
-		Y(i).audioDroppedSamples > 0 && e(lt);
+	Cr(ht, (e) => {
+		Y(i).audioDroppedSamples > 0 && e(gt);
 	});
-	var ut = H(ct, 2), dt = (e) => {
-		var t = Ai(), n = V(t);
+	var _t = H(ht, 2), vt = (e) => {
+		var t = ji(), n = V(t);
 		U(() => {
 			Yr(t, "title", Y(i).decoderError), $(n, `Decoder error · ${Y(i).decoderError ?? ""}`);
 		}), Q(e, t);
 	};
-	Cr(ut, (e) => {
-		Y(i).decoderError && e(dt);
+	Cr(_t, (e) => {
+		Y(i).decoderError && e(vt);
 	});
-	var F = H(ut, 2);
-	let ft;
-	var pt = H(B(F), 1, !0);
-	j(F);
-	var mt = V(H(F, 2));
-	j(Ze);
-	var ht = H(Ze, 2), gt = B(ht), _t = V(gt), vt = H(gt, 2), yt = H(vt, 2), bt = H(yt, 2), xt = H(bt, 2), St = H(xt, 2), Ct = V(H(St, 2), !0);
-	j(ht);
-	var wt = H(ht, 2), Tt = (e) => {
-		var t = Ri(), n = B(t), r = V(H(B(n), 2), !0);
+	var yt = H(_t, 2);
+	let bt;
+	var xt = H(B(yt), 1, !0);
+	j(yt);
+	var St = V(H(yt, 2));
+	j(st);
+	var Ct = H(st, 2), wt = B(Ct), Tt = V(wt), Et = H(wt, 2), Dt = H(Et, 2), Ot = H(Dt, 2), kt = H(Ot, 2), At = H(kt, 2), jt = V(H(At, 2), !0);
+	j(Ct);
+	var Mt = H(Ct, 2), Nt = (e) => {
+		var t = zi(), n = B(t), r = V(H(B(n), 2), !0);
 		j(n);
 		var i = H(n, 2), a = (e) => {
-			var t = Mi();
+			var t = Ni();
 			Dr(t, 23, () => Y(ne), (e, t) => e.receivedAt + ":" + t, (e, t) => {
-				var n = ji(), r = B(n), i = V(r), a = V(H(r, 2), !0);
+				var n = Mi(), r = B(n), i = V(r), a = V(H(r, 2), !0);
 				j(n), U((e) => {
 					$(i, `${e ?? ""} · ${Y(t).source ?? ""} → ${Y(t).destination ?? ""}`), $(a, Y(t).text);
 				}, [() => (/* @__PURE__ */ new Date(Y(t).receivedAt * 1e3)).toLocaleTimeString()]), Q(e, n);
@@ -2658,54 +2666,41 @@ function qi(e, t) {
 			Y(ne).length && e(a);
 		});
 		var o = H(i, 2), s = (e) => {
-			var t = Pi();
+			var t = Fi();
 			Dr(t, 23, () => Y(te), (e, t) => e.receivedAt + ":" + t, (e, t) => {
-				var n = Ni(), r = B(n), i = V(r), a = V(H(r, 2), !0);
+				var n = Pi(), r = B(n), i = V(r), a = V(H(r, 2), !0);
 				j(n), U((e) => {
 					$(i, `${e ?? ""} · KISS ${Y(t).port ?? ""} · ${Y(t).command === 0 ? "DATA" : `CMD ${Y(t).command}`} · ${Y(t).payloadBytes ?? ""} B`), $(a, Y(t).payloadHex);
 				}, [() => (/* @__PURE__ */ new Date(Y(t).receivedAt * 1e3)).toLocaleTimeString()]), Q(e, n);
 			}), j(t), Q(e, t);
 		}, c = (e) => {
-			Q(e, Fi());
+			Q(e, Ii());
 		};
 		Cr(o, (e) => {
 			Y(te).length ? e(s) : Y(ne).length || e(c, 1);
 		});
 		var l = H(o, 2), u = (e) => {
-			var t = Li();
+			var t = Ri();
 			Dr(t, 23, () => Y(re), (e, t) => e.receivedAt + ":" + t, (e, t) => {
-				var n = Ii(), r = V(n);
+				var n = Li(), r = V(n);
 				U((e) => $(r, `${e ?? ""} · ${Y(t).text ?? ""}`), [() => (/* @__PURE__ */ new Date(Y(t).receivedAt * 1e3)).toLocaleTimeString()]), Q(e, n);
 			}), j(t), Q(e, t);
 		};
 		Cr(l, (e) => {
 			Y(re).length && e(u);
 		}), j(t), U(() => $(r, Y(E))), Q(e, t);
-	}, Et = /* @__PURE__ */ it(() => Y(i).mode.toLocaleLowerCase() === "data2g");
-	Cr(wt, (e) => {
-		Y(Et) && e(Tt);
+	}, Pt = /* @__PURE__ */ it(() => Y(i).mode.toLocaleLowerCase() === "data2g");
+	Cr(Mt, (e) => {
+		Y(Pt) && e(Nt);
 	});
-	var Dt = H(wt, 2), Ot = B(Dt), kt = V(Ot, !0), I = H(Ot, 2), At = (e) => {
-		var t = zi(), n = V(t, !0);
-		U(() => {
-			Yr(t, "aria-pressed", Y(i).recording), t.disabled = !Y(i).recording && Y(i).audio !== "playing", $(n, Y(i).recording ? "Stop recording" : "Record audio");
-		}), X("click", t, O), Q(e, t);
-	};
-	Cr(I, (e) => {
-		(Y(i).recordingAllowed || Y(i).recording) && e(At);
-	});
-	var jt = H(I, 4);
-	qr(jt);
-	var Mt = H(jt, 2), Nt = V(Mt), Pt = V(H(Mt, 2), !0);
-	j(Dt);
-	var Ft = H(Dt, 2), It = B(Ft), Lt = V(H(B(It)), !0);
+	var Ft = H(Mt, 2), It = B(Ft), Lt = V(H(B(It)), !0);
 	j(It);
 	var Rt = H(It, 2), Bt = B(Rt), Vt = H(B(Bt), 2);
 	qr(Vt), ye(2), j(Bt);
 	var Ht = H(Bt, 2), Ut = (e) => {
-		var t = Vi(), n = H(Yt(t), 2), r = B(n), i = B(r);
+		var t = Bi(), n = H(Yt(t), 2), r = B(n), i = B(r);
 		i.value = i.__value = "", Dr(H(i), 17, () => Y(ee), (e) => e.id, (e, t) => {
-			var n = Bi(), r = V(n), i = {};
+			var n = Oi(), r = V(n), i = {};
 			U((e) => {
 				$(r, `${Y(t).name ?? ""} · ${e ?? ""} MHz · ${Y(t).modulation ?? ""}`), i !== (i = Y(t).id) && (n.value = (n.__value = i) ?? "");
 			}, [() => (Y(t).frequencyHz / 1e6).toFixed(6)]), Q(e, n);
@@ -2715,7 +2710,7 @@ function qi(e, t) {
 			a.disabled = !Y(C), o.disabled = !Y(C);
 		}), Br(r, () => Y(C), (e) => R(C, e)), X("click", a, be), X("click", o, xe), Q(e, t);
 	}, Wt = (e) => {
-		Q(e, Hi());
+		Q(e, Vi());
 	};
 	Cr(Ht, (e) => {
 		Y(ee).length ? e(Ut) : e(Wt, -1);
@@ -2727,9 +2722,9 @@ function qi(e, t) {
 	var Zt = H(Xt, 2), Qt = V(H(Zt, 2), !0);
 	j(Jt);
 	var $t = H(Jt, 2), en = (e) => {
-		var t = Wi();
+		var t = Ui();
 		Dr(t, 23, () => Y(se), (e, t) => `${e.timestampMs}:${t}`, (e, t) => {
-			var n = Ui(), r = B(n), i = B(r), a = V(i, !0), o = H(i, 2), s = V(o, !0), c = H(o, 2), l = V(c, !0), u = V(H(c, 2), !0);
+			var n = Hi(), r = B(n), i = B(r), a = V(i, !0), o = H(i, 2), s = V(o, !0), c = H(o, 2), l = V(c, !0), u = V(H(c, 2), !0);
 			j(r);
 			var d = V(H(r, 2), !0);
 			j(n), U((e, n, r) => {
@@ -2741,35 +2736,35 @@ function qi(e, t) {
 			]), Q(e, n);
 		}), j(t), Q(e, t);
 	}, tn = (e) => {
-		var t = Gi(), n = V(t, !0);
+		var t = Wi(), n = V(t, !0);
 		U(() => $(n, Y(ae) ? "No receptions match this search." : "Decoded receptions will appear here.")), Q(e, t);
 	};
 	Cr($t, (e) => {
 		Y(se).length ? e(en) : e(tn, -1);
-	}), j(Kt), j(Oe), U((e, t, n) => {
-		$(je, `OPENWEBRX+ · ${Y(i).profileName ?? ""}`), $(Ne, e), Yr(Ie, "aria-expanded", Y(_)), $(ze, Y(_) ? "Close RF controls" : "RF controls"), $(Be, Y(h) || Y(d) || Y(f)), $(Ge, Y(u)), $(Xe, Y(l)), $e = Fr(Qe, 1, "receiver-island__status-item svelte-apy39n", null, $e, { "receiver-island__status--active": Y(i).connection === "connected" }), $(et, Y(i).connection === "connected" ? "Connected" : Y(i).connection === "starting" ? "Starting" : "Reconnecting"), nt = Fr(tt, 1, "receiver-island__status-item svelte-apy39n", null, nt, {
+	}), j(Kt), j(De), U((e, t, n) => {
+		$(Ae, Y(i).profileName), Yr(Fe, "aria-expanded", Y(_)), $(M, Y(_) ? "Close RF controls" : "RF controls"), $(Ie, Y(h) || Y(d) || Y(f)), $(We, `${e ?? ""} Hz step`), $(P, Y(l)), $(Xe, Y(u)), Yr(Qe, "aria-pressed", Y(i).muted), Qe.disabled = Y(i).audio !== "playing", $($e, Y(i).audio === "playing" ? Y(i).muted ? "Unmute" : "Mute" : "Audio waiting"), Jr(nt, Y(i).volume), nt.disabled = Y(i).audio !== "playing" || Y(i).muted, $(at, `${Y(i).volume ?? ""}%`), $(ot, Y(p)), lt = Fr(ct, 1, "receiver-island__status-item svelte-apy39n", null, lt, { "receiver-island__status--active": Y(i).connection === "connected" }), $(ut, Y(i).connection === "connected" ? "Connected" : Y(i).connection === "starting" ? "Starting" : "Reconnecting"), F = Fr(dt, 1, "receiver-island__status-item svelte-apy39n", null, F, {
 			"receiver-island__status--active": Y(i).deviceState === "running",
 			"receiver-island__health-warning": Y(i).deviceSeverity === "warning",
 			"receiver-island__health-error": Y(i).deviceSeverity === "error"
-		}), Yr(tt, "title", Y(i).deviceMessage ?? ""), Yr(tt, "aria-label", `SDR ${Y(i).deviceName ?? "source"}: ${Y(i).deviceState}`), $(rt, `${Y(i).deviceName ?? "SDR" ?? ""} · ${t ?? ""}`), ot = Fr(at, 1, "receiver-island__status-item svelte-apy39n", null, ot, { "receiver-island__status--active": Y(i).audio === "playing" }), $(st, Y(i).audio === "playing" ? "Audio live" : "Audio waiting"), ft = Fr(F, 1, "receiver-island__status-item svelte-apy39n", null, ft, { "receiver-island__status--active": Y(i).decoder === "output" }), $(pt, Y(i).decoder === "off" ? "Decoder off" : Y(i).decoder === "output" ? `${Y(i).mode} output received` : `${Y(i).mode} selected · waiting for output`), $(mt, `STEP ${n ?? ""} Hz`), $(_t, `WATERFALL · ZOOM ${Y(i).waterfallZoomLevel + 1}/${Y(i).waterfallZoomMaximum + 1}`), vt.disabled = Y(i).waterfallZoomLevel === 0, yt.disabled = Y(i).waterfallZoomLevel >= Y(i).waterfallZoomMaximum, $(Ct, Y(m)), Yr(Ot, "aria-pressed", Y(i).muted), Ot.disabled = Y(i).audio !== "playing", $(kt, Y(i).muted ? "Unmute" : "Mute"), Jr(jt, Y(i).volume), jt.disabled = Y(i).audio !== "playing" || Y(i).muted, $(Nt, `${Y(i).volume ?? ""}%`), $(Pt, Y(p)), $(Lt, Y(ee).length), $(Gt, Y(T)), $(qt, `Reception history · ${Y(ie).length ?? ""}`), Zt.disabled = Y(ie).length === 0, $(Qt, Y(oe));
+		}), Yr(dt, "title", Y(i).deviceMessage ?? ""), Yr(dt, "aria-label", `SDR ${Y(i).deviceName ?? "source"}: ${Y(i).deviceState}`), $(ft, `${Y(i).deviceName ?? "SDR" ?? ""} · ${t ?? ""}`), pt = Fr(I, 1, "receiver-island__status-item svelte-apy39n", null, pt, { "receiver-island__status--active": Y(i).audio === "playing" }), $(mt, Y(i).audio === "playing" ? "Audio live" : "Audio waiting"), bt = Fr(yt, 1, "receiver-island__status-item svelte-apy39n", null, bt, { "receiver-island__status--active": Y(i).decoder === "output" }), $(xt, Y(i).decoder === "off" ? "Decoder off" : Y(i).decoder === "output" ? `${Y(i).mode} output received` : `${Y(i).mode} selected · waiting for output`), $(St, `STEP ${n ?? ""} Hz`), $(Tt, `WATERFALL · ZOOM ${Y(i).waterfallZoomLevel + 1}/${Y(i).waterfallZoomMaximum + 1}`), Et.disabled = Y(i).waterfallZoomLevel === 0, Dt.disabled = Y(i).waterfallZoomLevel >= Y(i).waterfallZoomMaximum, $(jt, Y(m)), $(Lt, Y(ee).length), $(Gt, Y(T)), $(qt, `Reception history · ${Y(ie).length ?? ""}`), Zt.disabled = Y(ie).length === 0, $(Qt, Y(oe));
 	}, [
-		() => Y(i).availableModes.find((e) => e.modulation === Y(i).mode)?.name ?? Y(i).mode,
+		() => Y(i).tuningStepHz.toLocaleString(),
 		() => Y(i).deviceState.replaceAll("_", " "),
 		() => Y(i).tuningStepHz.toLocaleString()
-	]), X("click", Pe, A), X("click", Ie, de), ir("submit", Ve, De), X("input", He, Ee), ir("focus", He, () => R(c, !0)), ir("blur", He, () => R(c, !1)), $r(He, () => Y(o), (e) => R(o, e)), ir("submit", Ke, me), X("click", qe, () => D(-1)), X("keydown", Je, pe), ir("focus", Je, () => R(s, !0)), ir("blur", Je, () => R(s, !1)), $r(Je, () => Y(a), (e) => R(a, e)), X("click", Ye, () => D(1)), X("click", vt, () => _e("out")), X("click", yt, () => _e("in")), X("click", bt, () => _e("full")), X("click", xt, () => k("auto")), X("click", St, () => k("default")), X("click", Ot, ge), X("input", jt, he), ir("submit", Bt, (e) => {
+	]), X("click", Me, A), X("click", Fe, de), ir("submit", Be, me), X("click", Ve, () => D(-1)), X("keydown", He, pe), ir("focus", He, () => R(s, !0)), ir("blur", He, () => R(s, !1)), $r(He, () => Y(a), (e) => R(a, e)), X("click", N, () => D(1)), ir("submit", Ge, Ee), ir("focus", Ke, () => R(c, !0)), ir("blur", Ke, () => R(c, !1)), Br(Ke, () => Y(o), (e) => R(o, e)), X("click", Qe, ge), X("input", nt, he), X("click", Et, () => _e("out")), X("click", Dt, () => _e("in")), X("click", Ot, () => _e("full")), X("click", kt, () => k("auto")), X("click", At, () => k("default")), ir("submit", Bt, (e) => {
 		e.preventDefault(), ve();
-	}), $r(Vt, () => Y(w), (e) => R(w, e)), $r(Xt, () => Y(ae), (e) => R(ae, e)), X("click", Zt, le), Q(e, Oe), Re();
+	}), $r(Vt, () => Y(w), (e) => R(w, e)), $r(Xt, () => Y(ae), (e) => R(ae, e)), X("click", Zt, le), Q(e, De), Re();
 }
 //#endregion
 //#region src/main.ts
 ar([
 	"click",
-	"input",
-	"keydown"
+	"keydown",
+	"input"
 ]), new URLSearchParams(window.location.search).get("receiver-pane") === "secondary" && document.body.classList.add("receiver-modern-secondary-document");
-function Ji() {
+function qi() {
 	let e = document.getElementById("receiver-modern-ui");
-	e && e.dataset.mounted !== "true" && (e.dataset.mounted = "true", vr(qi, { target: e }));
+	e && e.dataset.mounted !== "true" && (e.dataset.mounted = "true", vr(Ki, { target: e }));
 }
-document.readyState === "loading" ? document.addEventListener("DOMContentLoaded", Ji, { once: !0 }) : Ji();
+document.readyState === "loading" ? document.addEventListener("DOMContentLoaded", qi, { once: !0 }) : qi();
 //#endregion

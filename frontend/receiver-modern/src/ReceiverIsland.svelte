@@ -515,17 +515,6 @@
         return `Unavailable: requires ${requirements.map(requirementLabel).join(', ')}`;
     }
 
-    function updateModeAvailability(event: Event): void {
-        const target = event.currentTarget;
-        if (!(target instanceof HTMLInputElement)) return;
-        modeInput = target.value;
-        const query = target.value.trim().toLocaleLowerCase();
-        const unavailable = snapshot.modeCapabilities.find((candidate) =>
-            !candidate.available && (candidate.name.toLocaleLowerCase() === query || candidate.modulation.toLocaleLowerCase() === query)
-        );
-        modeMessage = unavailable ? unavailableReason(unavailable.missing_requirements) : '';
-    }
-
     function submitMode(event: SubmitEvent): void {
         event.preventDefault();
         const query = modeInput.trim().toLocaleLowerCase();
@@ -551,52 +540,23 @@
 </script>
 
 <section class="receiver-island" aria-label="Receiver tuning and status">
-    <div class="receiver-island__identity">
-        <span class="receiver-island__eyebrow">OPENWEBRX+ · {snapshot.profileName}</span>
-        <span class="receiver-island__mode">{snapshot.availableModes.find((mode) => mode.modulation === snapshot.mode)?.name ?? snapshot.mode}</span>
-        <button type="button" class="receiver-island__bookmark" onclick={saveBookmark}>Save bookmark</button>
+    <header class="receiver-island__identity">
+        <div class="receiver-island__receiver-name">
+            <span class="receiver-island__eyebrow">OPENWEBRX+</span>
+            <span class="receiver-island__profile">{snapshot.profileName}</span>
+        </div>
+        <div class="receiver-island__header-actions">
+            <button type="button" class="receiver-island__bookmark" onclick={saveBookmark}>Save station</button>
         {#if !secondaryPane}
             <button type="button" class="receiver-island__bookmark" aria-pressed={dualViewOpen} onclick={toggleDualReceiverView}>{dualViewOpen ? 'Close second tuner' : 'Dual tuner view'}</button>
             <button type="button" class="receiver-island__bookmark" onclick={openAnotherReceiver}>Open separate window</button>
         {/if}
-        <button type="button" class="receiver-island__advanced-toggle" aria-expanded={advancedControlsOpen} aria-controls="openwebrx-panel-receiver" onclick={toggleAdvancedControls}>{advancedControlsOpen ? 'Close RF controls' : 'RF controls'}</button>
-        <span class="receiver-island__message" aria-live="polite">{dualViewMessage || bookmarkMessage || receiverMessage}</span>
-    </div>
+            <button type="button" class="receiver-island__advanced-toggle" aria-expanded={advancedControlsOpen} aria-controls="openwebrx-panel-receiver" onclick={toggleAdvancedControls}>{advancedControlsOpen ? 'Close RF controls' : 'RF controls'}</button>
+        </div>
+        <span class="receiver-island__header-message" aria-live="polite">{dualViewMessage || bookmarkMessage || receiverMessage}</span>
+    </header>
 
-    <form class="receiver-island__mode-picker" onsubmit={submitMode} aria-label="Select receiver mode">
-        <label for="receiver-modern-mode">MODE</label>
-        <input
-            id="receiver-modern-mode"
-            type="search"
-            list="receiver-modern-mode-options"
-            bind:value={modeInput}
-            oninput={updateModeAvailability}
-            onfocus={() => editingMode = true}
-            onblur={() => editingMode = false}
-            aria-describedby="receiver-modern-mode-message"
-            autocomplete="off"
-            placeholder="Search modes"
-        />
-        <datalist id="receiver-modern-mode-options">
-            {#if snapshot.modeCapabilities.length}
-                {#each snapshot.modeCapabilities as mode (mode.modulation)}
-                    <option
-                        value={mode.name}
-                        label={mode.available
-                            ? (mode.type === 'digimode' ? 'Digital decoder' : 'Analog demodulator')
-                            : unavailableReason(mode.missing_requirements)}
-                    ></option>
-                {/each}
-            {:else}
-                {#each snapshot.availableModes as mode (mode.modulation)}
-                    <option value={mode.name} label={mode.type === 'digimode' ? 'Digital decoder' : 'Analog demodulator'}></option>
-                {/each}
-            {/if}
-        </datalist>
-        <button type="submit" class="receiver-island__apply">Set mode</button>
-        <span id="receiver-modern-mode-message" class="receiver-island__message" aria-live="polite">{modeMessage}</span>
-    </form>
-
+    <div class="receiver-island__listening-bar">
     <form class="receiver-island__tuning" onsubmit={submitFrequency}>
         <button type="button" class="receiver-island__nudge" aria-label="Tune down one step" onclick={() => adjustFrequency(-1)}>−</button>
         <label class="receiver-island__frequency-label" for="receiver-modern-frequency">FREQUENCY · MHz</label>
@@ -616,8 +576,38 @@
         />
         <button type="submit" class="receiver-island__apply">Tune</button>
         <button type="button" class="receiver-island__nudge" aria-label="Tune up one step" onclick={() => adjustFrequency(1)}>+</button>
+        <span class="receiver-island__step">{snapshot.tuningStepHz.toLocaleString()} Hz step</span>
         <span id="receiver-modern-tune-message" class="receiver-island__message" aria-live="polite">{tuneMessage}</span>
     </form>
+
+    <form class="receiver-island__mode-picker" onsubmit={submitMode} aria-label="Select receiver mode">
+        <label for="receiver-modern-mode">MODE</label>
+        <select id="receiver-modern-mode" bind:value={modeInput} onfocus={() => editingMode = true} onblur={() => editingMode = false} aria-describedby="receiver-modern-mode-message">
+            {#if snapshot.modeCapabilities.length}
+                {#each snapshot.modeCapabilities as mode (mode.modulation)}
+                    <option value={mode.name} disabled={!mode.available}>{mode.name}{mode.available ? '' : ` · ${unavailableReason(mode.missing_requirements)}`}</option>
+                {/each}
+            {:else}
+                {#each snapshot.availableModes as mode (mode.modulation)}
+                    <option value={mode.name}>{mode.name}</option>
+                {/each}
+            {/if}
+        </select>
+        <button type="submit" class="receiver-island__apply">Apply</button>
+        <span id="receiver-modern-mode-message" class="receiver-island__message" aria-live="polite">{modeMessage}</span>
+    </form>
+
+    <div class="receiver-island__audio" aria-label="Audio controls">
+        <button type="button" class="receiver-island__mute" aria-pressed={snapshot.muted} disabled={snapshot.audio !== 'playing'} onclick={toggleAudioMute}>{snapshot.audio !== 'playing' ? 'Audio waiting' : snapshot.muted ? 'Unmute' : 'Mute'}</button>
+        {#if snapshot.recordingAllowed || snapshot.recording}
+            <button type="button" class="receiver-island__record" aria-pressed={snapshot.recording} disabled={!snapshot.recording && snapshot.audio !== 'playing'} onclick={toggleAudioRecording}>{snapshot.recording ? 'Stop recording' : 'Record'}</button>
+        {/if}
+        <label for="receiver-modern-volume">VOLUME</label>
+        <input id="receiver-modern-volume" type="range" min="0" max="150" step="1" value={snapshot.volume} disabled={snapshot.audio !== 'playing' || snapshot.muted} oninput={changeVolume} aria-label="Audio volume" />
+        <output for="receiver-modern-volume">{snapshot.volume}%</output>
+        <span class="receiver-island__record-message" aria-live="polite">{recordingMessage}</span>
+    </div>
+    </div>
 
     <div class="receiver-island__status" aria-label="Receiver status">
         <span class:receiver-island__status--active={snapshot.connection === 'connected'} class="receiver-island__status-item">
@@ -698,39 +688,6 @@
         </section>
     {/if}
 
-    <div class="receiver-island__audio" aria-label="Audio controls">
-        <button
-            type="button"
-            class="receiver-island__mute"
-            aria-pressed={snapshot.muted}
-            disabled={snapshot.audio !== 'playing'}
-            onclick={toggleAudioMute}
-        >{snapshot.muted ? 'Unmute' : 'Mute'}</button>
-        {#if snapshot.recordingAllowed || snapshot.recording}
-            <button
-                type="button"
-                class="receiver-island__record"
-                aria-pressed={snapshot.recording}
-                disabled={!snapshot.recording && snapshot.audio !== 'playing'}
-                onclick={toggleAudioRecording}
-            >{snapshot.recording ? 'Stop recording' : 'Record audio'}</button>
-        {/if}
-        <label for="receiver-modern-volume">VOLUME</label>
-        <input
-            id="receiver-modern-volume"
-            type="range"
-            min="0"
-            max="150"
-            step="1"
-            value={snapshot.volume}
-            disabled={snapshot.audio !== 'playing' || snapshot.muted}
-            oninput={changeVolume}
-            aria-label="Audio volume"
-        />
-        <output for="receiver-modern-volume">{snapshot.volume}%</output>
-        <span class="receiver-island__record-message" aria-live="polite">{recordingMessage}</span>
-    </div>
-
     <details class="receiver-island__layouts">
         <summary>Saved layouts <span>{savedLayouts.length}</span></summary>
         <div class="receiver-island__layouts-panel">
@@ -789,31 +746,34 @@
 <style>
     .receiver-island {
         display: grid;
-        grid-template-columns: minmax(150px, 1fr) minmax(220px, 1fr) minmax(280px, 1.2fr) minmax(220px, 1fr);
-        align-items: center;
-        gap: 18px;
-        padding: 10px clamp(12px, 2vw, 28px);
+        grid-template-columns: minmax(0, 1fr);
+        gap: 10px;
+        padding: 12px clamp(14px, 2vw, 30px);
         border-bottom: 1px solid var(--rx-border, #2b4050);
         background: linear-gradient(90deg, #101820, #152530 52%, #101820);
         color: var(--rx-text, #e5edf2);
         font-family: "DejaVu Sans", Verdana, sans-serif;
     }
-    .receiver-island__identity { display: grid; gap: 5px; min-width: 0; }
-    .receiver-island__eyebrow { color: var(--rx-muted, #9aabb8); font-size: 9px; font-weight: 700; letter-spacing: .16em; }
-    .receiver-island__mode { color: var(--rx-amber, #f4b95f); font-size: 12px; font-weight: 700; text-transform: uppercase; }
-    .receiver-island__bookmark { justify-self: start; min-height: 44px; border: 1px solid var(--rx-border, #2b4050); border-radius: 7px; padding: 0 10px; background: #1a2a37; color: var(--rx-text, #e5edf2); cursor: pointer; font: 600 11px sans-serif; }
+    .receiver-island__identity { display: flex; align-items: center; gap: 14px; min-width: 0; }
+    .receiver-island__receiver-name { display: flex; align-items: baseline; gap: 10px; min-width: 0; margin-right: auto; }
+    .receiver-island__eyebrow { color: var(--rx-cyan, #57d7e8); font-size: 10px; font-weight: 800; letter-spacing: .14em; }
+    .receiver-island__profile { overflow: hidden; color: var(--rx-muted, #9aabb8); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+    .receiver-island__header-actions { display: flex; align-items: center; gap: 6px; }
+    .receiver-island__header-message { color: var(--rx-amber, #f4b95f); font-size: 12px; }
+    .receiver-island__bookmark { justify-self: start; min-height: 40px; border: 1px solid var(--rx-border, #2b4050); border-radius: 8px; padding: 0 12px; background: #1a2a37; color: var(--rx-text, #e5edf2); cursor: pointer; font: 600 12px sans-serif; }
     .receiver-island__bookmark:hover { border-color: var(--rx-cyan, #57d7e8); color: var(--rx-cyan, #57d7e8); }
-    .receiver-island__mode-picker { display: flex; align-items: center; gap: 7px; min-width: 0; flex-wrap: wrap; color: var(--rx-muted, #9aabb8); font: 10px ui-monospace, monospace; }
-    .receiver-island__mode-picker input { width: min(100%, 180px); min-width: 100px; border: 1px solid var(--rx-border, #2b4050); border-radius: 7px; padding: 7px 9px; background: #0b1118; color: var(--rx-text, #e5edf2); font: 12px sans-serif; }
+    .receiver-island__listening-bar { display: grid; grid-template-columns: minmax(280px, 1.25fr) minmax(210px, .85fr) minmax(280px, 1fr); align-items: center; gap: 12px; padding: 12px; border: 1px solid var(--rx-border, #2b4050); border-radius: 12px; background: linear-gradient(110deg, #15232d, #111a22 60%, #172632); box-shadow: 0 8px 24px rgb(0 0 0 / 20%); }
+    .receiver-island__mode-picker { display: flex; align-items: center; gap: 8px; min-width: 0; flex-wrap: wrap; color: var(--rx-muted, #9aabb8); font: 11px ui-monospace, monospace; }
+    .receiver-island__mode-picker select { flex: 1 1 130px; width: 100%; min-width: 0; min-height: 44px; border: 1px solid var(--rx-border, #2b4050); border-radius: 8px; padding: 0 12px; background: #0b1118; color: var(--rx-text, #e5edf2); font: 14px sans-serif; }
     .receiver-island__tuning { display: flex; align-items: center; gap: 8px; min-width: 0; flex-wrap: wrap; }
     .receiver-island__frequency-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; }
-    .receiver-island__frequency { width: min(100%, 230px); min-width: 130px; border: 1px solid var(--rx-border, #2b4050); border-radius: 7px; padding: 7px 9px; background: #0b1118; color: var(--rx-cyan, #57d7e8); font: 600 20px/1.2 ui-monospace, monospace; font-variant-numeric: tabular-nums; }
+    .receiver-island__frequency { flex: 1 1 160px; width: min(100%, 230px); min-width: 130px; border: 1px solid var(--rx-border, #2b4050); border-radius: 8px; padding: 9px 11px; background: #081218; color: var(--rx-cyan, #57d7e8); font: 650 24px/1.2 ui-monospace, monospace; font-variant-numeric: tabular-nums; }
     .receiver-island__frequency::-webkit-inner-spin-button { display: none; }
     .receiver-island__nudge, .receiver-island__apply { min-width: 44px; min-height: 44px; border: 1px solid var(--rx-border, #2b4050); border-radius: 7px; background: #1a2a37; color: var(--rx-text, #e5edf2); cursor: pointer; font: 700 17px/1 sans-serif; }
     .receiver-island__apply { padding: 0 12px; color: var(--rx-cyan, #57d7e8); font-size: 12px; }
     .receiver-island__nudge:hover, .receiver-island__apply:hover { border-color: var(--rx-cyan, #57d7e8); }
-    .receiver-island__status { display: flex; align-items: center; justify-content: flex-end; gap: 14px; flex-wrap: wrap; }
-    .receiver-island__status-item { display: inline-flex; align-items: center; gap: 6px; color: var(--rx-muted, #9aabb8); font-size: 11px; white-space: nowrap; }
+    .receiver-island__status { display: flex; align-items: center; justify-content: flex-start; gap: 18px; flex-wrap: wrap; padding: 0 4px; }
+    .receiver-island__status-item { display: inline-flex; align-items: center; gap: 7px; color: var(--rx-muted, #9aabb8); font-size: 12px; white-space: nowrap; }
     .receiver-island__status-item i { width: 7px; height: 7px; border-radius: 50%; background: #697680; }
     .receiver-island__status--active { color: var(--rx-text, #e5edf2); }
     .receiver-island__status--active i { background: var(--rx-cyan, #57d7e8); box-shadow: 0 0 9px rgb(87 215 232 / 55%); }
@@ -860,10 +820,10 @@
     .receiver-island__zoom:hover:not(:disabled) { border-color: var(--rx-cyan, #57d7e8); color: var(--rx-cyan, #57d7e8); }
     .receiver-island__zoom:disabled { opacity: .5; cursor: not-allowed; }
     .receiver-island__message { flex-basis: 100%; min-height: 12px; color: var(--rx-amber, #f4b95f); font-size: 10px; }
-    .receiver-island__audio { grid-column: 2 / 4; display: flex; align-items: center; gap: 10px; min-width: 0; color: var(--rx-muted, #9aabb8); font: 10px ui-monospace, monospace; flex-wrap: wrap; }
+    .receiver-island__audio { display: flex; align-items: center; gap: 9px; min-width: 0; color: var(--rx-muted, #9aabb8); font: 11px ui-monospace, monospace; flex-wrap: wrap; }
     .receiver-island__audio input { width: min(240px, 40vw); accent-color: var(--rx-cyan, #57d7e8); }
     .receiver-island__audio output { min-width: 42px; color: var(--rx-text, #e5edf2); font-variant-numeric: tabular-nums; }
-    .receiver-island__mute { min-height: 44px; border: 1px solid var(--rx-border, #2b4050); border-radius: 7px; padding: 0 10px; background: #1a2a37; color: var(--rx-text, #e5edf2); cursor: pointer; font: 600 11px sans-serif; }
+    .receiver-island__mute { min-height: 44px; border: 1px solid var(--rx-cyan, #57d7e8); border-radius: 8px; padding: 0 14px; background: #12313b; color: var(--rx-text, #e5edf2); cursor: pointer; font: 700 12px sans-serif; }
     .receiver-island__mute:hover:not(:disabled) { border-color: var(--rx-cyan, #57d7e8); color: var(--rx-cyan, #57d7e8); }
     .receiver-island__mute:disabled { opacity: .55; cursor: not-allowed; }
     .receiver-island__record { min-height: 44px; border: 1px solid #704045; border-radius: 7px; padding: 0 10px; background: #351e23; color: #ffc0c0; cursor: pointer; font: 600 11px sans-serif; }
@@ -871,12 +831,22 @@
     .receiver-island__record[aria-pressed="true"] { border-color: #ff9292; background: #702c32; color: #fff; }
     .receiver-island__record:disabled { opacity: .5; cursor: not-allowed; }
     .receiver-island__record-message { color: var(--rx-amber, #f4b95f); }
-    @media (max-width: 760px) {
-        .receiver-island { grid-template-columns: 1fr auto; gap: 8px 12px; padding: 8px 10px; }
-        .receiver-island__identity { grid-column: 1 / -1; grid-template-columns: 1fr auto; align-items: baseline; }
-        .receiver-island__mode-picker { grid-column: 1 / -1; }
-        .receiver-island__status { justify-content: flex-start; grid-column: 1 / -1; gap: 10px; }
-        .receiver-island__audio { grid-column: 1 / -1; }
-        .receiver-island__frequency { width: min(42vw, 185px); font-size: 17px; }
+    @media (max-width: 1050px) { .receiver-island__listening-bar { grid-template-columns: minmax(0, 1fr) minmax(200px, .8fr); } .receiver-island__audio { grid-column: 1 / -1; } }
+    @media (max-width: 640px) {
+        .receiver-island { gap: 8px; padding: 8px 10px; }
+        .receiver-island__identity { align-items: flex-start; }
+        .receiver-island__receiver-name { display: grid; gap: 2px; }
+        .receiver-island__header-actions > .receiver-island__bookmark:not(:first-child), .receiver-island__header-actions > .receiver-island__advanced-toggle { display: none; }
+        .receiver-island__header-actions > .receiver-island__bookmark:first-child { min-height: 38px; }
+        .receiver-island__listening-bar { grid-template-columns: minmax(0, 1fr); gap: 9px; padding: 10px; }
+        .receiver-island__tuning { display: grid; grid-template-columns: 44px minmax(0, 1fr) auto 44px; }
+        .receiver-island__frequency { width: 100%; min-width: 0; font-size: 22px; }
+        .receiver-island__step { grid-column: 2; text-align: center; }
+        .receiver-island__mode-picker { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; }
+        .receiver-island__mode-picker select { grid-column: 1 / -1; grid-row: 2; }
+        .receiver-island__mode-picker .receiver-island__apply { grid-column: 3; grid-row: 1; }
+        .receiver-island__audio { grid-column: 1; }
+        .receiver-island__audio input { flex: 1 1 90px; width: auto; }
+        .receiver-island__status { gap: 8px 14px; }
     }
 </style>
