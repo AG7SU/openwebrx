@@ -1,5 +1,6 @@
 <script lang="ts">
     import {onMount} from 'svelte';
+    import {arrangeReceiverCards} from './workspace';
     import {addCurrentBookmark, getOtherSourceProfile, getSelectedReceiverProfile, readReceiverSnapshot, setReceiverMode, setRecording, setVolume, setWaterfallRange, subscribeReceiver, toggleMute, tuneTo, zoomWaterfall, type ReceiverSnapshot} from './receiver-bridge';
     import {deleteReceiverLayout, getReceiverLayouts, saveReceiverLayout, type ReceiverLayout} from './layouts';
 
@@ -50,6 +51,8 @@
     let dualViewMessage = $state('');
     let dualViewOpen = $state(false);
     let advancedControlsOpen = $state(false);
+    let receiverCard: HTMLDetailsElement;
+    let lastCardSummary: HTMLElement | null = null;
     let secondaryPane = $state(false);
     let dualViewTimer: number | null = null;
     let separateReceiverTimer: number | null = null;
@@ -115,6 +118,14 @@
 
     onMount(() => {
         document.body.classList.add('receiver-modern-modes-mounted');
+        const restoreCards = arrangeReceiverCards();
+        const toggleReceiverCard = (event: MouseEvent) => {
+            if (!(event.target instanceof Element) || !event.target.closest('[data-toggle-panel="openwebrx-panel-receiver"]')) return;
+            event.stopImmediatePropagation();
+            receiverCard.open = !receiverCard.open;
+            document.body.classList.remove('receiver-modern-focus');
+        };
+        document.addEventListener('click', toggleReceiverCard, true);
         secondaryPane = document.body.classList.contains('receiver-modern-secondary-document');
         receptionHistory = readReceptionHistory();
         const receiveReception = (event: Event) => {
@@ -143,9 +154,15 @@
         window.addEventListener('openwebrx:reception', receiveReception);
         window.addEventListener('storage', receiveReceptionStorage);
         const closeAdvancedControlsOnEscape = (event: KeyboardEvent) => {
-            if (event.key !== 'Escape' || !advancedControlsOpen) return;
-            advancedControlsOpen = false;
-            document.body.classList.remove('receiver-modern-advanced-open');
+            if (event.key !== 'Escape') return;
+            if (advancedControlsOpen) {
+                advancedControlsOpen = false;
+                document.body.classList.remove('receiver-modern-advanced-open');
+                document.querySelector<HTMLButtonElement>('.receiver-island__advanced-toggle')?.focus();
+            } else {
+                closeSupportingCards();
+                lastCardSummary?.focus();
+            }
         };
         window.addEventListener('keydown', closeAdvancedControlsOnEscape);
         layoutProfileId = getSelectedReceiverProfile() ?? '';
@@ -255,9 +272,33 @@
             document.body.classList.remove('receiver-modern-dual');
             document.body.classList.remove('receiver-modern-advanced-open');
             document.documentElement.classList.remove('receiver-modern-dual-document');
-            document.body.classList.remove('receiver-modern-modes-mounted');
+            document.body.classList.remove('receiver-modern-modes-mounted', 'receiver-modern-focus');
+            document.removeEventListener('click', toggleReceiverCard, true);
+            restoreCards();
         };
     });
+
+    function closeSupportingCards(): void {
+        document.querySelectorAll<HTMLDetailsElement>('.receiver-workspace__card[open]').forEach(card => card.open = false);
+    }
+
+    function openSupportingCard(event: Event): void {
+        const card = event.currentTarget;
+        if (!(card instanceof HTMLDetailsElement) || !card.open) return;
+        lastCardSummary = card.querySelector('summary');
+        document.body.classList.remove('receiver-modern-focus');
+        document.querySelectorAll<HTMLDetailsElement>('.receiver-workspace__card[open]').forEach(other => {
+            if (other !== card) other.open = false;
+        });
+    }
+
+    function focusWaterfall(): void {
+        closeSupportingCards();
+        receiverCard.open = false;
+        document.body.classList.add('receiver-modern-focus');
+        advancedControlsOpen = false;
+        document.body.classList.remove('receiver-modern-advanced-open');
+    }
 
     function toggleAdvancedControls(): void {
         advancedControlsOpen = !advancedControlsOpen;
@@ -358,7 +399,7 @@
     function applySavedLayout(): void {
         const layout = savedLayouts.find((candidate) => candidate.id === selectedLayoutId);
         if (!layout) {
-            layoutMessage = 'Choose a saved layout';
+            layoutMessage = 'Choose a saved station';
             return;
         }
         if (!snapshot.availableModes.some((mode) => mode.modulation === layout.modulation)) {
@@ -539,22 +580,18 @@
     }
 </script>
 
-<section class="receiver-island" aria-label="Receiver tuning and status">
+<div class="receiver-workspace">
+<details class="receiver-island" bind:this={receiverCard} open ontoggle={() => { if (receiverCard.open) document.body.classList.remove('receiver-modern-focus'); }} aria-label="Receiver card">
+    <summary class="receiver-island__summary">
+        <strong>Receiver</strong>
+        <span>{snapshot.frequencyHz === null ? snapshot.profileName : `${(snapshot.frequencyHz / 1_000_000).toFixed(6)} MHz`} · {snapshot.mode}</span>
+    </summary>
+    <div class="receiver-island__body">
     <header class="receiver-island__identity">
-        <div class="receiver-island__receiver-name">
-            <span class="receiver-island__eyebrow">OPENWEBRX+</span>
-            <span class="receiver-island__profile">{snapshot.profileName}</span>
-        </div>
-        <div class="receiver-island__header-actions">
-            <button type="button" class="receiver-island__bookmark" onclick={saveBookmark}>Save station</button>
-        {#if !secondaryPane}
-            <button type="button" class="receiver-island__bookmark" aria-pressed={dualViewOpen} onclick={toggleDualReceiverView}>{dualViewOpen ? 'Close second tuner' : 'Dual tuner view'}</button>
-            <button type="button" class="receiver-island__bookmark" onclick={openAnotherReceiver}>Open separate window</button>
-        {/if}
-            <button type="button" class="receiver-island__advanced-toggle" aria-expanded={advancedControlsOpen} aria-controls="openwebrx-panel-receiver" onclick={toggleAdvancedControls}>{advancedControlsOpen ? 'Close RF controls' : 'RF controls'}</button>
-        </div>
-        <span class="receiver-island__header-message" aria-live="polite">{dualViewMessage || bookmarkMessage || receiverMessage}</span>
+        <label id="receiver-modern-profile-slot" for="openwebrx-sdr-profiles-listbox" class="receiver-island__profile-select">Source / profile</label>
+        <button type="button" class="receiver-island__bookmark" onclick={saveBookmark}>Save station</button>
     </header>
+    <span class="receiver-island__header-message" aria-live="polite">{bookmarkMessage}</span>
 
     <div class="receiver-island__listening-bar">
     <form class="receiver-island__tuning" onsubmit={submitFrequency}>
@@ -640,6 +677,43 @@
         <span class="receiver-island__status-step">STEP {snapshot.tuningStepHz.toLocaleString()} Hz</span>
     </div>
 
+    <div id="receiver-modern-meter-slot" aria-label="Signal strength"></div>
+    <button type="button" class="receiver-island__advanced-toggle" aria-expanded={advancedControlsOpen} aria-controls="receiver-modern-rf-slot" onclick={toggleAdvancedControls}>{advancedControlsOpen ? 'Close RF controls' : 'RF controls · step, squelch, noise reduction'}</button>
+    <div id="receiver-modern-rf-slot" hidden={!advancedControlsOpen}></div>
+    </div>
+</details>
+
+<nav class="receiver-workspace__dock" aria-label="Listening workspace cards">
+    <button type="button" class="receiver-workspace__focus" onclick={focusWaterfall}>Clear view</button>
+    <details class="receiver-workspace__card" ontoggle={openSupportingCard}>
+        <summary>Display</summary>
+        <div class="receiver-workspace__card-body">
+            <h2>Spectrum &amp; waterfall</h2>
+    <div class="receiver-island__waterfall-controls" aria-label="Waterfall controls">
+        <span class="receiver-island__waterfall-label">WATERFALL · ZOOM {snapshot.waterfallZoomLevel + 1}/{snapshot.waterfallZoomMaximum + 1}</span>
+        <button type="button" class="receiver-island__zoom" disabled={snapshot.waterfallZoomLevel === 0} onclick={() => changeWaterfallZoom('out')}>Zoom out</button>
+        <button type="button" class="receiver-island__zoom" disabled={snapshot.waterfallZoomLevel >= snapshot.waterfallZoomMaximum} onclick={() => changeWaterfallZoom('in')}>Zoom in</button>
+        <button type="button" class="receiver-island__zoom" onclick={() => changeWaterfallZoom('full')}>Full spectrum</button>
+        <button type="button" class="receiver-island__zoom" onclick={() => changeWaterfallRange('auto')}>Auto levels</button>
+        <button type="button" class="receiver-island__zoom" onclick={() => changeWaterfallRange('default')}>Reset range</button>
+        <span class="receiver-island__message" aria-live="polite">{waterfallMessage}</span>
+    </div>
+
+            <div id="receiver-modern-levels-slot" class="receiver-workspace__levels"></div>
+            <div id="receiver-modern-display-slot"></div>
+        </div>
+    </details>
+    <details class="receiver-workspace__card" ontoggle={openSupportingCard}>
+        <summary>Preferences</summary>
+        <div class="receiver-workspace__card-body">
+            <h2>Appearance &amp; gestures</h2>
+            <div id="receiver-modern-preferences-slot"></div>
+        </div>
+    </details>
+    <details class="receiver-workspace__card" ontoggle={openSupportingCard}>
+        <summary>Activity{snapshot.mode.toLocaleLowerCase() === 'data2g' ? ' · Data2G' : ''}</summary>
+        <div class="receiver-workspace__card-body">
+            <h2>Decoded activity</h2>
     <div class="receiver-island__waterfall-controls" aria-label="Waterfall controls">
         <span class="receiver-island__waterfall-label">WATERFALL · ZOOM {snapshot.waterfallZoomLevel + 1}/{snapshot.waterfallZoomMaximum + 1}</span>
         <button type="button" class="receiver-island__zoom" disabled={snapshot.waterfallZoomLevel === 0} onclick={() => changeWaterfallZoom('out')}>Zoom out</button>
@@ -688,19 +762,24 @@
         </section>
     {/if}
 
-    <details class="receiver-island__layouts">
-        <summary>Saved layouts <span>{savedLayouts.length}</span></summary>
-        <div class="receiver-island__layouts-panel">
+        {#if snapshot.mode.toLocaleLowerCase() !== 'data2g'}
+            <p>Decoder output appears in the reception cards. Search saved output in History.</p>
+        {/if}
+        </div>
+    </details>
+    <details class="receiver-island__layouts receiver-workspace__card" ontoggle={openSupportingCard}>
+        <summary>Saved stations <span>{savedLayouts.length}</span></summary>
+        <div class="receiver-island__layouts-panel receiver-workspace__card-body">
             <form class="receiver-island__layout-save" onsubmit={(event) => { event.preventDefault(); saveCurrentLayout(); }}>
                 <label for="receiver-modern-layout-name">SAVE CURRENT FREQUENCY + MODE</label>
-                <input id="receiver-modern-layout-name" bind:value={layoutName} maxlength="48" placeholder="Layout name" autocomplete="off" />
+                <input id="receiver-modern-layout-name" bind:value={layoutName} maxlength="48" placeholder="Station name" autocomplete="off" />
                 <button type="submit" class="receiver-island__apply">Save</button>
             </form>
             {#if savedLayouts.length}
                 <label class="receiver-island__layout-select-label" for="receiver-modern-layout-list">THIS RECEIVER PROFILE</label>
                 <div class="receiver-island__layout-actions">
                     <select id="receiver-modern-layout-list" bind:value={selectedLayoutId}>
-                        <option value="">Choose a saved layout</option>
+                        <option value="">Choose a saved station</option>
                         {#each savedLayouts as layout (layout.id)}
                             <option value={layout.id}>{layout.name} · {(layout.frequencyHz / 1_000_000).toFixed(6)} MHz · {layout.modulation}</option>
                         {/each}
@@ -715,8 +794,10 @@
         </div>
     </details>
 
-    <details class="receiver-island__history">
-        <summary>Reception history · {receptionHistory.length}</summary>
+    <details class="receiver-island__history receiver-workspace__card" ontoggle={openSupportingCard}>
+        <summary>History · {receptionHistory.length}</summary>
+        <div class="receiver-workspace__card-body">
+        <h2>Reception history</h2>
         <div class="receiver-island__history-tools">
             <label for="receiver-modern-history-search">Search time, frequency, mode, source, or decoded content</label>
             <input id="receiver-modern-history-search" type="search" bind:value={receptionSearch} autocomplete="off" />
@@ -740,8 +821,23 @@
         {:else}
             <p>{receptionSearch ? 'No receptions match this search.' : 'Decoded receptions will appear here.'}</p>
         {/if}
+        </div>
     </details>
-</section>
+    <details class="receiver-workspace__card" ontoggle={openSupportingCard}>
+        <summary>Tools</summary>
+        <div class="receiver-workspace__card-body receiver-workspace__tools">
+            <h2>Receiver windows</h2>
+            {#if !secondaryPane}
+                <button type="button" class="receiver-island__bookmark" aria-pressed={dualViewOpen} onclick={toggleDualReceiverView}>{dualViewOpen ? 'Close second tuner' : 'Dual tuner view'}</button>
+                <button type="button" class="receiver-island__bookmark" onclick={openAnotherReceiver}>Open separate window</button>
+            {:else}
+                <p>This is the second receiver. Manage both tuners from the main window.</p>
+            {/if}
+            <span aria-live="polite">{dualViewMessage || receiverMessage}</span>
+        </div>
+    </details>
+</nav>
+</div>
 
 <style>
     .receiver-island {
@@ -755,10 +851,6 @@
         font-family: "DejaVu Sans", Verdana, sans-serif;
     }
     .receiver-island__identity { display: flex; align-items: center; gap: 14px; min-width: 0; }
-    .receiver-island__receiver-name { display: flex; align-items: baseline; gap: 10px; min-width: 0; margin-right: auto; }
-    .receiver-island__eyebrow { color: var(--rx-cyan, #57d7e8); font-size: 10px; font-weight: 800; letter-spacing: .14em; }
-    .receiver-island__profile { overflow: hidden; color: var(--rx-muted, #9aabb8); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
-    .receiver-island__header-actions { display: flex; align-items: center; gap: 6px; }
     .receiver-island__header-message { color: var(--rx-amber, #f4b95f); font-size: 12px; }
     .receiver-island__bookmark { justify-self: start; min-height: 40px; border: 1px solid var(--rx-border, #2b4050); border-radius: 8px; padding: 0 12px; background: #1a2a37; color: var(--rx-text, #e5edf2); cursor: pointer; font: 600 12px sans-serif; }
     .receiver-island__bookmark:hover { border-color: var(--rx-cyan, #57d7e8); color: var(--rx-cyan, #57d7e8); }
@@ -789,7 +881,7 @@
     .receiver-island__history-tools input { flex: 1 1 240px; min-height: 44px; padding: 8px; border: 1px solid #526a75; border-radius: 6px; background: #071116; color: var(--rx-text, #e5edf2); }
     .receiver-island__history-tools button { min-height: 44px; padding: 8px 12px; border: 1px solid #526a75; border-radius: 6px; background: #12242c; color: var(--rx-text, #e5edf2); }
     .receiver-island__history-tools span { flex-basis: 100%; color: var(--rx-muted, #9aabb8); font: 11px sans-serif; }
-    .receiver-island__history > p { margin: 0 12px 12px; color: var(--rx-muted, #9aabb8); font: 12px sans-serif; }
+    .receiver-island__history p { margin: 0 12px 12px; color: var(--rx-muted, #9aabb8); font: 12px sans-serif; }
     .receiver-island__history-list { display: grid; gap: 8px; max-height: 360px; overflow: auto; margin: 0; padding: 0 12px 12px; list-style: none; }
     .receiver-island__history-list li { min-width: 0; padding: 10px; border-left: 2px solid var(--rx-cyan, #57d7e8); border-radius: 4px; background: #101f27; }
     .receiver-island__history-list header { display: flex; flex-wrap: wrap; gap: 6px 12px; color: var(--rx-muted, #9aabb8); font: 10px ui-monospace, monospace; }
@@ -831,22 +923,48 @@
     .receiver-island__record[aria-pressed="true"] { border-color: #ff9292; background: #702c32; color: #fff; }
     .receiver-island__record:disabled { opacity: .5; cursor: not-allowed; }
     .receiver-island__record-message { color: var(--rx-amber, #f4b95f); }
-    @media (max-width: 1050px) { .receiver-island__listening-bar { grid-template-columns: minmax(0, 1fr) minmax(200px, .8fr); } .receiver-island__audio { grid-column: 1 / -1; } }
-    @media (max-width: 640px) {
-        .receiver-island { gap: 8px; padding: 8px 10px; }
-        .receiver-island__identity { align-items: flex-start; }
-        .receiver-island__receiver-name { display: grid; gap: 2px; }
-        .receiver-island__header-actions > .receiver-island__bookmark:not(:first-child), .receiver-island__header-actions > .receiver-island__advanced-toggle { display: none; }
-        .receiver-island__header-actions > .receiver-island__bookmark:first-child { min-height: 38px; }
-        .receiver-island__listening-bar { grid-template-columns: minmax(0, 1fr); gap: 9px; padding: 10px; }
-        .receiver-island__tuning { display: grid; grid-template-columns: 44px minmax(0, 1fr) auto 44px; }
-        .receiver-island__frequency { width: 100%; min-width: 0; font-size: 22px; }
-        .receiver-island__step { grid-column: 2; text-align: center; }
-        .receiver-island__mode-picker { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; }
-        .receiver-island__mode-picker select { grid-column: 1 / -1; grid-row: 2; }
-        .receiver-island__mode-picker .receiver-island__apply { grid-column: 3; grid-row: 1; }
-        .receiver-island__audio { grid-column: 1; }
-        .receiver-island__audio input { flex: 1 1 90px; width: auto; }
-        .receiver-island__status { gap: 8px 14px; }
+    .receiver-workspace { font-family: "DejaVu Sans", Verdana, sans-serif; color: var(--rx-text); }
+    .receiver-island { position: absolute; right: 12px; bottom: 64px; width: 360px; max-width: calc(100% - 24px); padding: 0; display: block; border: 1px solid var(--rx-border); border-radius: 12px; background: rgb(13 21 28 / 97%); box-shadow: 0 8px 32px #0008; }
+    .receiver-island__summary { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 44px; padding: 0 12px; cursor: pointer; font-size: 13px; }
+    .receiver-island__summary::before { content: '+'; color: var(--rx-cyan); }
+    .receiver-island[open] > summary::before { content: '−'; }
+    .receiver-island__summary span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 11px ui-monospace, monospace; color: var(--rx-cyan); }
+    .receiver-island__body { display: grid; gap: 10px; padding: 0 12px 12px; max-height: calc(100dvh - 200px); overflow: auto; overscroll-behavior: contain; }
+    .receiver-island__identity { align-items: end; gap: 8px; }
+    .receiver-island__profile-select { display: grid; flex: 1; min-width: 0; gap: 4px; color: var(--rx-muted); font-size: 11px; }
+    .receiver-island__listening-bar { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; padding: 0; border: 0; background: none; box-shadow: none; }
+    .receiver-island__tuning { display: grid; grid-template-columns: 36px minmax(0, 1fr) 44px 36px; gap: 6px; }
+    .receiver-island__frequency { width: 100%; box-sizing: border-box; min-width: 0; font-size: 21px; padding: 8px; }
+    .receiver-island__nudge { min-width: 36px; }
+    .receiver-island__step { grid-column: 1 / -1; color: var(--rx-muted); font: 11px ui-monospace, monospace; }
+    .receiver-island__mode-picker { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; font-size: 12px; }
+    .receiver-island__audio { gap: 6px; font-size: 11px; }
+    .receiver-island__audio label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+    .receiver-island__audio input { flex: 1; min-width: 50px; width: 50px; }
+    .receiver-island__audio output { min-width: 34px; }
+    .receiver-island__status { gap: 6px 12px; padding: 0; }
+    .receiver-island__status-item { font-size: 11px; white-space: normal; overflow-wrap: anywhere; }
+    .receiver-island__status-step { display: none; }
+    .receiver-island__message:empty, .receiver-island__header-message:empty, .receiver-island__record-message:empty { display: none; }
+    .receiver-island__advanced-toggle { min-height: 36px; border: 1px solid var(--rx-border); border-radius: 8px; background: var(--rx-surface-raised); color: var(--rx-cyan); cursor: pointer; font: 12px sans-serif; }
+    .receiver-workspace__dock { position: absolute; bottom: max(10px, env(safe-area-inset-bottom)); left: 12px; right: 12px; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; pointer-events: auto; }
+    .receiver-workspace__card { grid-column: auto; border: 1px solid var(--rx-border); border-radius: 8px; background: var(--rx-surface); min-width: 0; }
+    .receiver-workspace__card > summary { min-height: 44px; box-sizing: border-box; display: flex; align-items: center; padding: 0 12px; font: 12px sans-serif; color: var(--rx-text); cursor: pointer; white-space: nowrap; }
+    .receiver-workspace__card[open] > summary { color: var(--rx-cyan); background: var(--rx-surface-raised); border-radius: 8px; }
+    .receiver-workspace__card-body { position: absolute; left: 0; bottom: 56px; width: min(480px, 100%); box-sizing: border-box; max-height: calc(100dvh - 180px); overflow: auto; overscroll-behavior: contain; padding: 16px; border: 1px solid var(--rx-border); border-radius: 12px; background: rgb(13 21 28 / 98%); box-shadow: 0 8px 32px #0008; font-size: 13px; }
+    .receiver-workspace__card-body h2 { margin: 0 0 12px; font-size: 15px; }
+    .receiver-workspace__card-body p { font-size: 13px; line-height: 1.5; }
+    .receiver-workspace__focus { min-height: 44px; padding: 0 12px; border: 1px solid var(--rx-cyan); border-radius: 8px; background: #12313b; color: var(--rx-cyan); cursor: pointer; white-space: nowrap; }
+    .receiver-workspace__levels { display: grid; grid-template-columns: 32px minmax(0, 1fr); align-items: center; gap: 8px; padding: 12px 0; }
+    .receiver-workspace__tools { display: grid; gap: 10px; }
+    .receiver-workspace__card .receiver-island__waterfall-controls { gap: 6px; }
+    @media (max-width: 700px) {
+        .receiver-island { bottom: 116px; right: 8px; width: 340px; max-width: calc(100% - 16px); }
+        .receiver-island__body { max-height: min(48dvh, calc(100dvh - 250px)); }
+        .receiver-workspace__dock { left: 8px; right: 8px; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; }
+        .receiver-workspace__card > summary { padding: 0 6px; justify-content: center; font-size: 11px; white-space: normal; }
+        .receiver-workspace__focus { padding: 0 6px; font-size: 11px; }
+        .receiver-workspace__card-body { bottom: 104px; width: calc(100vw - 16px); max-height: calc(100dvh - 220px); }
+        .receiver-workspace__card[open] .receiver-workspace__card-body { z-index: 2; }
     }
 </style>

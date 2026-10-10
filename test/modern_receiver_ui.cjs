@@ -12,6 +12,15 @@ const dom = new JSDOM('<!doctype html><html><body><div id="receiver-modern-ui"><
     url: 'https://receiver.example/'
 });
 const w = dom.window;
+const legacyPage = new JSDOM(fs.readFileSync(path.join(root, 'htdocs/index.html'), 'utf8'));
+const legacyReceiver = w.document.importNode(legacyPage.window.document.querySelector('#openwebrx-panel-receiver'), true);
+const profileSelect = w.document.querySelector('#openwebrx-sdr-profiles-listbox');
+legacyReceiver.querySelector('#openwebrx-sdr-profiles-listbox').replaceWith(profileSelect);
+w.document.body.append(legacyReceiver);
+const receiverButton = w.document.createElement('button');
+receiverButton.setAttribute('data-toggle-panel', 'openwebrx-panel-receiver');
+w.document.body.append(receiverButton);
+legacyPage.window.close();
 let frequency = 14_074_000;
 let volume = 100;
 let audioDroppedSamples = 0;
@@ -107,8 +116,29 @@ async function run() {
     w.eval(bundle);
     await new Promise(resolve => w.setTimeout(resolve, 25));
 
-    assert.equal(w.document.querySelector('.receiver-island__mode').textContent, 'Upper Sideband');
+    assert.equal(w.document.querySelector('#receiver-modern-mode').value, 'Upper Sideband');
     assert.equal(w.document.body.classList.contains('receiver-modern-modes-mounted'), true);
+    assert.equal(w.document.querySelector('#receiver-modern-rf-slot #openwebrx-panel-receiver'), legacyReceiver);
+    assert.ok(w.document.querySelector('#receiver-modern-profile-slot #openwebrx-sdr-profiles-listbox'));
+    assert.ok(w.document.querySelector('#receiver-modern-display-slot #openwebrx-wf-themes-listbox'));
+    assert.ok(w.document.querySelector('#receiver-modern-preferences-slot #openwebrx-themes-listbox'));
+    assert.ok(w.document.querySelector('#receiver-modern-levels-slot #openwebrx-waterfall-color-min'));
+    assert.ok(legacyReceiver.querySelector('.openwebrx-squelch-slider'));
+    const receiverCard = w.document.querySelector('.receiver-island');
+    w.document.querySelector('.receiver-workspace__focus').click();
+    assert.equal(receiverCard.open, false);
+    assert.equal(w.document.body.classList.contains('receiver-modern-focus'), true);
+    receiverButton.click();
+    assert.equal(receiverCard.open, true);
+    const cards = [...w.document.querySelectorAll('.receiver-workspace__card')];
+    cards[0].open = true;
+    await new Promise(resolve => w.setTimeout(resolve, 10));
+    cards[1].open = true;
+    await new Promise(resolve => w.setTimeout(resolve, 10));
+    assert.equal(cards[0].open, false, 'supporting cards should never stack over one another');
+    w.dispatchEvent(new w.KeyboardEvent('keydown', {key: 'Escape', bubbles: true}));
+    await new Promise(resolve => w.setTimeout(resolve, 0));
+    assert.equal(cards[1].open, false);
     const rfControlsToggle = w.document.querySelector('.receiver-island__advanced-toggle');
     assert.equal(rfControlsToggle.getAttribute('aria-expanded'), 'false');
     rfControlsToggle.click();
@@ -200,7 +230,7 @@ async function run() {
     };
     await new Promise(resolve => w.setTimeout(resolve, 275));
     assert.equal(selectedInlineProfile, 'sdr2|profile2');
-    assert.match(w.document.querySelector('.receiver-island__eyebrow').textContent, /Receiver 1/);
+    assert.match(w.document.querySelector('#openwebrx-sdr-profiles-listbox').selectedOptions[0].textContent, /Receiver 1/);
     [...w.document.querySelectorAll('button')].find(button => button.textContent === 'Close second tuner').click();
     assert.equal(w.document.body.classList.contains('receiver-modern-dual'), false);
     assert.equal(w.document.querySelector('#receiver-modern-secondary iframe'), null);
@@ -210,14 +240,14 @@ async function run() {
     await new Promise(resolve => w.setTimeout(resolve, 225));
     assert.equal(secondWindow.opener, null);
     assert.equal(selectedPopupProfile, 'sdr2|profile2');
-    assert.match(w.document.querySelector('.receiver-island__identity .receiver-island__message').textContent, /Receiver 2/);
+    assert.match(w.document.querySelector('.receiver-workspace__tools [aria-live]').textContent, /Receiver 2/);
     const input = w.document.querySelector('#receiver-modern-frequency');
     assert.equal(input.value, '14.074000');
 
     const modeInput = w.document.querySelector('#receiver-modern-mode');
     assert.equal(modeInput.value, 'Upper Sideband');
     modeInput.value = 'FT8';
-    modeInput.dispatchEvent(new w.Event('input', {bubbles: true}));
+    modeInput.dispatchEvent(new w.Event('change', {bubbles: true}));
     w.document.querySelector('.receiver-island__mode-picker').dispatchEvent(
         new w.Event('submit', {bubbles: true, cancelable: true})
     );
@@ -230,7 +260,7 @@ async function run() {
 
     modeInput.focus();
     modeInput.value = 'Q65';
-    modeInput.dispatchEvent(new w.Event('input', {bubbles: true}));
+    modeInput.dispatchEvent(new w.Event('change', {bubbles: true}));
     w.document.querySelector('.receiver-island__mode-picker').dispatchEvent(
         new w.Event('submit', {bubbles: true, cancelable: true})
     );
@@ -292,7 +322,7 @@ async function run() {
     assert.equal(JSON.parse(w.localStorage.getItem(w.localStorage.key(0))).length, 0);
     assert.match(w.document.querySelector('.receiver-island__layout-message').textContent, /removed/);
     modeInput.value = 'Data2G RX';
-    modeInput.dispatchEvent(new w.Event('input', {bubbles: true}));
+    modeInput.dispatchEvent(new w.Event('change', {bubbles: true}));
     w.document.querySelector('.receiver-island__mode-picker').dispatchEvent(
         new w.Event('submit', {bubbles: true, cancelable: true})
     );

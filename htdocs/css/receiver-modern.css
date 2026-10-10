@@ -105,184 +105,79 @@ input:focus-visible, select:focus-visible, textarea:focus-visible {
     }
 }
 
-/* Two independent source streams share one desktop receiver workspace. */
+/* The radio display owns the viewport. Cards float above its lower edge. */
+body.receiver-modern-modes-mounted #webrx-page-container { height: 100dvh; overflow: hidden; }
+body.receiver-modern-modes-mounted .openwebrx-waterfall-container { min-height: 0; min-width: 0; overflow: hidden; }
+#receiver-modern-ui { position: absolute; inset: 0; z-index: 120; pointer-events: none; }
+#receiver-modern-ui details, #receiver-modern-ui button { pointer-events: auto; }
+body.receiver-modern-modes-mounted #openwebrx-panels-container-right { display: none !important; }
+body.receiver-modern-modes-mounted .webrx-top-bar { height: 58px; }
+body.receiver-modern-modes-mounted .webrx-rx-avatar { width: 40px; height: 40px; margin: 8px; }
+body.receiver-modern-modes-mounted .webrx-top-logo { max-height: 32px; }
+body.receiver-modern-modes-mounted .openwebrx-main-buttons .button { width: 48px; font-size: 10px; }
+body.receiver-modern-modes-mounted .openwebrx-main-buttons .button svg { height: 28px; }
+
+/* The original demodulator root stays intact for scanner and keyboard controls. */
+#receiver-modern-rf-slot[hidden] { display: none; }
+#receiver-modern-rf-slot #openwebrx-panel-receiver {
+    display: block !important; transform: none !important; opacity: 1 !important;
+    width: auto; margin: 0; padding: 8px 0; border: 0 !important;
+    border-radius: 0; box-shadow: none; background: transparent;
+}
+#receiver-modern-rf-slot .frequencies-container,
+#receiver-modern-rf-slot .openwebrx-mute-button,
+#receiver-modern-rf-slot #openwebrx-panel-volume { display: none; }
+#receiver-modern-rf-slot .openwebrx-panel-line { display: flex; align-items: center; gap: 8px; }
+#receiver-modern-rf-slot .openwebrx-section-divider { display: none; }
+#receiver-modern-rf-slot .openwebrx-section { display: block; }
+#receiver-modern-rf-slot .openwebrx-panel-slider { flex: 1; min-width: 0; }
+#receiver-modern-profile-slot select { width: 100%; min-width: 0; }
+#receiver-modern-display-slot .openwebrx-section { display: block; }
+#receiver-modern-preferences-slot .openwebrx-section { display: block; }
+#receiver-modern-display-slot .openwebrx-section-divider,
+#receiver-modern-preferences-slot .openwebrx-section-divider { display: none; }
+#receiver-modern-display-slot .openwebrx-record-button { display: none; }
+#receiver-modern-meter-slot .openwebrx-panel-line { margin: 0; }
+#receiver-modern-levels-slot .openwebrx-panel-slider { width: 100%; min-width: 0; }
+#receiver-modern-display-slot select, #receiver-modern-preferences-slot select { max-width: 100%; }
+
 #receiver-modern-secondary { display: none; }
 body.receiver-modern-dual #webrx-page-container {
-    display: grid !important;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    grid-template-rows: auto auto minmax(0, 1fr);
-    min-height: 0;
-    overflow: hidden;
-}
-body.receiver-modern-dual #webrx-page-container > .webrx-top-container {
-    grid-column: 1 / -1;
-    grid-row: 1;
-    min-width: 0;
-}
-body.receiver-modern-dual #receiver-modern-ui {
-    grid-column: 1;
-    grid-row: 2;
-    min-width: 0;
-}
-body.receiver-modern-dual #receiver-modern-ui .receiver-island {
-    grid-template-columns: minmax(0, 1fr) auto;
-    gap: 8px 12px;
-    padding: 8px 10px;
-}
-body.receiver-modern-dual #receiver-modern-ui .receiver-island__identity {
-    grid-column: 1 / -1;
-    grid-template-columns: 1fr auto;
-    align-items: baseline;
-}
-body.receiver-modern-dual #receiver-modern-ui .receiver-island__mode-picker,
-body.receiver-modern-dual #receiver-modern-ui .receiver-island__status,
-body.receiver-modern-dual #receiver-modern-ui .receiver-island__audio {
-    grid-column: 1 / -1;
-}
-body.receiver-modern-dual #receiver-modern-ui .receiver-island__status { justify-content: flex-start; gap: 10px; }
-body.receiver-modern-dual #receiver-modern-ui .receiver-island__frequency { width: min(42vw, 185px); font-size: 17px; }
-body.receiver-modern-dual .openwebrx-waterfall-container {
-    grid-column: 1;
-    grid-row: 3;
-    min-width: 0;
-    min-height: 0;
-    overflow: hidden;
-}
-body.receiver-modern-dual #receiver-modern-secondary {
-    display: block;
-    grid-column: 2;
-    grid-row: 2 / 4;
-    min-width: 0;
-    min-height: 0;
-    overflow: hidden;
-    border-left: 1px solid var(--rx-border);
-    background: var(--rx-bg);
-}
-#receiver-modern-secondary iframe {
-    display: block;
-    width: 100%;
-    height: 100%;
-    min-height: 0;
-    border: 0;
-    background: var(--rx-bg);
-}
-body.receiver-modern-secondary-document #webrx-page-container {
-    display: grid !important;
-    grid-template-columns: minmax(0, 1fr);
+    display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
     grid-template-rows: auto minmax(0, 1fr);
-    min-height: 0;
-    overflow: hidden;
 }
-body.receiver-modern-secondary-document .webrx-top-container,
-body.receiver-modern-secondary-document #receiver-modern-secondary {
-    display: none !important;
+body.receiver-modern-dual #webrx-page-container > .webrx-top-container { grid-column: 1 / -1; grid-row: 1; }
+body.receiver-modern-dual .openwebrx-waterfall-container { grid-column: 1; grid-row: 2; }
+body.receiver-modern-dual #receiver-modern-ui { width: 50%; }
+body.receiver-modern-dual #receiver-modern-secondary {
+    display: block; grid-column: 2; grid-row: 2; min-width: 0; min-height: 0;
+    overflow: hidden; border-left: 1px solid var(--rx-border); background: var(--rx-bg);
 }
-body.receiver-modern-secondary-document #receiver-modern-ui {
-    grid-column: 1;
-    grid-row: 1;
-    min-width: 0;
-}
-body.receiver-modern-secondary-document .openwebrx-waterfall-container {
-    grid-column: 1;
-    grid-row: 2;
-    min-width: 0;
-    min-height: 0;
-    overflow: hidden;
-}
+#receiver-modern-secondary iframe { display: block; width: 100%; height: 100%; border: 0; }
+body.receiver-modern-secondary-document .webrx-top-container { display: none; }
+body.receiver-modern-focus #openwebrx-panels-container-left { display: none; }
 
-@media (max-width: 760px) {
-    html.receiver-modern-dual-document,
-    body.receiver-modern-dual {
-        height: auto;
-        min-height: 100%;
-        overflow-x: hidden;
-        overflow-y: auto;
-    }
+@media (max-width: 700px) {
+    body.receiver-modern-modes-mounted .webrx-top-logo { display: none; }
+    body.receiver-modern-modes-mounted .webrx-rx-desc { display: none; }
+    body.receiver-modern-modes-mounted .webrx-rx-avatar { width: 28px; height: 28px; margin: 6px; }
+    body.receiver-modern-modes-mounted .webrx-rx-title { font-size: 12px; }
+    body.receiver-modern-modes-mounted .openwebrx-main-buttons { padding: 0; gap: 0; }
+    body.receiver-modern-modes-mounted .openwebrx-main-buttons .button { width: 32px; font-size: 8px; }
+    body.receiver-modern-modes-mounted .openwebrx-main-buttons .button svg { height: 23px; }
     body.receiver-modern-dual #webrx-page-container {
-        height: auto;
-        min-height: 100%;
-        overflow: visible;
-        grid-template-columns: minmax(0, 1fr);
-        grid-template-rows: auto auto minmax(72vh, 1fr) minmax(72vh, 1fr);
+        grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr) minmax(0, 1fr);
     }
-    body.receiver-modern-dual #webrx-page-container > .webrx-top-container { grid-row: 1; }
-    body.receiver-modern-dual #receiver-modern-ui { grid-column: 1; grid-row: 2; }
-    body.receiver-modern-dual .openwebrx-waterfall-container { grid-column: 1; grid-row: 3; }
-    body.receiver-modern-dual #receiver-modern-secondary {
-        grid-column: 1;
-        grid-row: 4;
-        min-height: 72vh;
-        border-top: 1px solid var(--rx-border);
-        border-left: 0;
-    }
-    body.receiver-modern-secondary-document #webrx-page-container {
-        height: 100vh;
-        grid-template-rows: auto minmax(0, 1fr);
-    }
+    body.receiver-modern-dual #receiver-modern-ui { width: 100%; height: 50%; }
+    body.receiver-modern-dual #receiver-modern-secondary { grid-column: 1; grid-row: 3; border-left: 0; border-top: 1px solid var(--rx-border); }
 }
-
-/* On phones, keep the receiver island and waterfall in the page flow. Move
-   legacy gain/filter/settings controls into an explicit, scrollable bottom sheet. */
-.receiver-island__advanced-toggle {
-    display: none;
-    min-height: 44px;
-    border: 1px solid var(--rx-border);
-    border-radius: 8px;
-    padding: 0 10px;
-    background: var(--rx-surface-raised);
-    color: var(--rx-cyan);
-    font: 600 11px sans-serif;
+#receiver-modern-profile-slot select {
+    min-height: 40px; padding: 0 8px; border: 1px solid var(--rx-border);
+    border-radius: 8px; background: var(--rx-bg); color: var(--rx-text); font-size: 13px;
 }
-
-@media (max-width: 760px) {
-    html:has(body.receiver-modern-modes-mounted),
-    body.receiver-modern-modes-mounted {
-        height: auto !important;
-        min-height: 100%;
-        overflow-x: hidden !important;
-        overflow-y: auto !important;
-    }
-    body.receiver-modern-modes-mounted #webrx-page-container {
-        height: auto !important;
-        min-height: 100vh;
-        overflow: visible !important;
-    }
-    body.receiver-modern-modes-mounted .openwebrx-waterfall-container {
-        flex: 1 0 56vh;
-        min-height: 56vh;
-        overflow: visible;
-    }
-    body.receiver-modern-modes-mounted .receiver-island__advanced-toggle {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        cursor: pointer;
-    }
-    body.receiver-modern-modes-mounted #openwebrx-panels-container-right {
-        display: none !important;
-    }
-    body.receiver-modern-modes-mounted.receiver-modern-advanced-open #openwebrx-panels-container-right {
-        position: fixed !important;
-        inset: auto 6px 6px;
-        z-index: 1500;
-        display: flex !important;
-        align-items: stretch;
-        justify-content: flex-end;
-        width: auto;
-        height: auto;
-        max-height: min(65dvh, 560px);
-        overflow: auto;
-        padding: 6px;
-        border: 1px solid var(--rx-border);
-        border-radius: 12px;
-        background: rgb(9 16 22 / 98%);
-        box-shadow: 0 18px 48px rgb(0 0 0 / 55%);
-    }
-    body.receiver-modern-modes-mounted.receiver-modern-advanced-open #openwebrx-panel-receiver {
-        width: auto;
-        max-height: calc(min(65dvh, 560px) - 12px);
-        overflow: auto;
-        margin: 0;
-        transform: none !important;
-    }
-}
+#receiver-modern-ui .openwebrx-panel-slider { accent-color: var(--rx-cyan); }
+body.receiver-modern-modes-mounted .openwebrx-spectrum-container { max-height: 120px; }
+body.receiver-modern-modes-mounted .openwebrx-spectrum-container.expanded { height: clamp(72px, 12dvh, 120px); }
+body.receiver-modern-dual .receiver-workspace__dock { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+body.receiver-modern-dual .receiver-workspace__card > summary { white-space: normal; padding: 0 6px; font-size: 11px; }
+body.receiver-modern-dual .receiver-island { bottom: 116px; }

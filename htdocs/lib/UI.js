@@ -38,7 +38,7 @@ UI.loadSettings = function() {
     this.toggleCrossFreq(LS.has('ui_crossfreq')? LS.loadBool('ui_crossfreq') : false);
     this.toggleFrame(LS.has('ui_frame')? LS.loadBool('ui_frame') : false);
     this.toggleWheelSwap(LS.has('ui_wheel')? LS.loadBool('ui_wheel') : false);
-    this.toggleSpectrum(LS.has('ui_spectrum')? LS.loadBool('ui_spectrum') : false);
+    this.toggleSpectrum(LS.has('ui_spectrum')? LS.loadBool('ui_spectrum') : true);
     this.toggleBandplan(LS.has('ui_bandplan')? LS.loadBool('ui_bandplan') : false);
     this.setWfTheme(LS.has('wf_theme')? LS.loadStr('wf_theme') : 'default');
     this.setNR(LS.has('nr_threshold')? LS.loadInt('nr_threshold') : 0);
